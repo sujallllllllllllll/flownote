@@ -27,5 +27,7 @@ data class NoteEntity(
     val updatedAt: Long, // Timestamp in milliseconds
     val isSynced: Boolean,
     val isPinned: Boolean,
-    val color: String
+    val color: String,
+    val reminderTime: Long?, // Timestamp in milliseconds
+    val isChecklist: Boolean = false
 )

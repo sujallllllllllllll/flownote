@@ -1,0 +1,310 @@
+package com.flownote.ui.screens.addedit
+
+import android.content.Context
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.flownote.data.model.Category
+import com.flownote.data.model.Note
+import com.flownote.data.model.NoteColor
+import com.flownote.data.repository.NoteRepository
+import com.flownote.util.NotificationScheduler
+import com.flownote.util.PdfExporter
+import com.flownote.util.VoiceRecorder
+import com.flownote.util.SpeechToTextManager
+import com.flownote.util.ExportUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.io.File
+import java.util.Date
+import java.util.UUID
+import javax.inject.Inject
+
+/**
+ * ViewModel for Note Editor screen
+ */
+@HiltViewModel
+class NoteEditorViewModel @Inject constructor(
+    private val noteRepository: NoteRepository,
+    savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context
+) : ViewModel() {
+
+
+
+    private val notificationScheduler = NotificationScheduler()
+    val speechManager = SpeechToTextManager(context)
+    private val voiceRecorder = VoiceRecorder()
+
+    private val noteId: String? = savedStateHandle["noteId"]
+    
+    // State
+    private val _title = MutableStateFlow("")
+    val title: StateFlow<String> = _title.asStateFlow()
+    
+    private val _content = MutableStateFlow("")
+    val content: StateFlow<String> = _content.asStateFlow()
+    
+    private val _category = MutableStateFlow(Category.GENERAL)
+    val category: StateFlow<Category> = _category.asStateFlow()
+    
+    private val _noteColor = MutableStateFlow(NoteColor.DEFAULT)
+    val noteColor: StateFlow<NoteColor> = _noteColor.asStateFlow()
+    
+    private val _isPinned = MutableStateFlow(false)
+    val isPinned: StateFlow<Boolean> = _isPinned.asStateFlow()
+    
+
+    
+    private val _lastEdited = MutableStateFlow<String?>(null)
+    val lastEdited: StateFlow<String?> = _lastEdited.asStateFlow()
+    
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
+    private val _isNoteSaved = MutableStateFlow(false)
+    val isNoteSaved: StateFlow<Boolean> = _isNoteSaved.asStateFlow()
+    
+    private val _reminderTime = MutableStateFlow<Date?>(null)
+    val reminderTime: StateFlow<Date?> = _reminderTime.asStateFlow()
+
+    private val _isRecordingAudio = MutableStateFlow(false)
+    val isRecordingAudio: StateFlow<Boolean> = _isRecordingAudio.asStateFlow()
+    
+    private val _isPlayingAudio = MutableStateFlow(false)
+    val isPlayingAudio: StateFlow<Boolean> = _isPlayingAudio.asStateFlow()
+    
+    private val _hasAudio = MutableStateFlow(false)
+    val hasAudio: StateFlow<Boolean> = _hasAudio.asStateFlow()
+    
+    private val _audioPath = MutableStateFlow<String?>(null)
+    val audioPath: StateFlow<String?> = _audioPath.asStateFlow()
+
+    private val _tags = MutableStateFlow<List<String>>(emptyList())
+    val tags: StateFlow<List<String>> = _tags.asStateFlow()
+    
+    val speechState = speechManager.speechState
+    
+    private var currentNote: Note? = null
+
+    init {
+        if (noteId != null && noteId != "new") {
+            loadNote(noteId)
+        }
+    }
+    
+    private fun loadNote(id: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val note = noteRepository.getNoteById(id)
+            note?.let {
+                currentNote = it
+                _title.value = it.title
+                _content.value = it.content
+                _category.value = it.category
+                _noteColor.value = it.color
+                // Removed duplicate _noteColor.value assignment line here if it existed
+                _isPinned.value = it.isPinned
+                _reminderTime.value = it.reminderTime
+                _hasAudio.value = it.hasAudio
+                _audioPath.value = it.audioPath
+                _tags.value = it.tags
+                _lastEdited.value = com.flownote.util.DateUtils.formatDate(it.updatedAt)
+            }
+            _isLoading.value = false
+        }
+    }
+    
+    fun onTitleChange(newTitle: String) {
+        _title.value = newTitle
+    }
+    
+    fun onContentChange(newContent: String) {
+        _content.value = newContent
+    }
+    
+    fun onCategoryChange(newCategory: Category) {
+        _category.value = newCategory
+    }
+    
+    fun onColorChange(newColor: NoteColor) {
+        _noteColor.value = newColor
+    }
+    
+    fun togglePin() {
+        _isPinned.value = !_isPinned.value
+    }
+    
+
+    
+    fun setReminder(date: Date?) {
+        _reminderTime.value = date
+    }
+    
+    fun deleteNote() {
+        currentNote?.let {
+            viewModelScope.launch {
+                noteRepository.deleteNote(it)
+                _isNoteSaved.value = true // Trigger navigation back
+            }
+        }
+    }
+    
+    fun saveNote(navigateBack: Boolean = true) {
+        if (_title.value.isBlank() && _content.value.isBlank()) return
+        
+        viewModelScope.launch {
+            val note = currentNote?.copy(
+                title = _title.value,
+                content = _content.value,
+                category = _category.value,
+                color = _noteColor.value,
+                isPinned = _isPinned.value,
+                reminderTime = _reminderTime.value,
+                hasAudio = _hasAudio.value,
+                audioPath = _audioPath.value,
+                updatedAt = java.util.Date()
+            ) ?: Note(
+                id = UUID.randomUUID().toString(),
+                title = _title.value,
+                content = _content.value,
+                category = _category.value,
+                tags = _tags.value,
+                isTemporary = false,
+                deleteAfter = null,
+                hasAudio = _hasAudio.value,
+                audioPath = _audioPath.value,
+                createdAt = java.util.Date(),
+                updatedAt = java.util.Date(),
+                isSynced = false,
+                isPinned = _isPinned.value,
+                color = _noteColor.value,
+                reminderTime = _reminderTime.value,
+                isChecklist = false
+            )
+            
+            // Schedule or Cancel Reminder
+            if (_reminderTime.value != null && _reminderTime.value!!.after(Date())) {
+                notificationScheduler.scheduleReminder(
+                    context, 
+                    note.id, 
+                    note.title.ifBlank { "Untitled Note" },
+                    _reminderTime.value!!
+                )
+            } else {
+                notificationScheduler.cancelReminder(context, note.id)
+            }
+            
+            
+            noteRepository.saveNote(note)
+            
+            // Only trigger navigation if requested
+            if (navigateBack) {
+                _isNoteSaved.value = true
+            }
+        }
+    }
+    
+    fun addTag(tag: String) {
+        if (!_tags.value.contains(tag)) {
+            _tags.value = _tags.value + tag
+        }
+    }
+
+    fun removeTag(tag: String) {
+        _tags.value = _tags.value - tag
+    }
+
+    fun toggleAudioRecording() {
+        if (_isRecordingAudio.value) {
+            // Stop Recording
+            try {
+                val file = voiceRecorder.stopRecording()
+                _isRecordingAudio.value = false
+                if (file != null) {
+                    _hasAudio.value = true
+                    _audioPath.value = file.absolutePath
+                    viewModelScope.launch {
+                        saveNote(navigateBack = false) // Save audio attachment
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _isRecordingAudio.value = false
+            }
+        } else {
+            // Start Recording
+            try {
+                // Create file
+                val audioDir = File(context.filesDir, "audio_notes")
+                if (!audioDir.exists()) audioDir.mkdirs()
+                val file = File(audioDir, "audio_${UUID.randomUUID()}.aac")
+                
+                voiceRecorder.startRecording(context, file)
+                _isRecordingAudio.value = true
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+    
+    fun toggleAudioPlayback() {
+        if (_isPlayingAudio.value) {
+            voiceRecorder.stopPlayback()
+            _isPlayingAudio.value = false
+        } else {
+            _audioPath.value?.let { path ->
+                val file = File(path)
+                if (file.exists()) {
+                    try {
+                        voiceRecorder.playAudio(file) {
+                            _isPlayingAudio.value = false
+                        }
+                        _isPlayingAudio.value = true
+                    } catch (e: Exception) {
+                         e.printStackTrace()
+                    }
+                }
+            }
+        }
+    }
+    
+    fun deleteAudio() {
+        _hasAudio.value = false
+        _audioPath.value = null
+        // Optionally delete file, but keep it simple for now (or delete later)
+        saveNote(navigateBack = false)
+    }
+    
+    fun exportAsText() {
+        val note = currentNote?.copy(
+             title = _title.value,
+             content = _content.value
+        ) ?: Note(title = _title.value, content = _content.value)
+        
+        ExportUtils.exportAsText(context, note)
+    }
+    
+    fun exportAsPdf() {
+         val note = currentNote?.copy(
+             title = _title.value,
+             content = _content.value
+        ) ?: Note(title = _title.value, content = _content.value)
+        
+        ExportUtils.exportAsPdf(context, note)
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            voiceRecorder.release()
+            speechManager.destroy()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}

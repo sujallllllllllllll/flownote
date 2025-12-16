@@ -21,8 +21,17 @@ data class Note(
     val updatedAt: Date = Date(),
     val isSynced: Boolean = false,
     val isPinned: Boolean = false,
-    val color: NoteColor = NoteColor.DEFAULT
+    val color: NoteColor = NoteColor.DEFAULT,
+    val reminderTime: Date? = null,
+    val isChecklist: Boolean = false
 ) {
+    /**
+     * Get plain text content (strip HTML)
+     */
+    fun getPlainTextContent(): String {
+        return content.replace(Regex("<[^>]*>"), " ").replace("&nbsp;", " ").trim()
+    }
+
     /**
      * Generate title from content if title is empty
      */
@@ -30,8 +39,10 @@ data class Note(
         return if (title.isNotBlank()) {
             title
         } else {
-            // Take first line or first 50 characters of content
-            val firstLine = content.lines().firstOrNull()?.trim() ?: ""
+            // Take first 50 characters of plain text content
+            val plainText = getPlainTextContent()
+            val firstLine = plainText.lines().firstOrNull()?.trim() ?: ""
+            
             if (firstLine.length > 50) {
                 firstLine.take(50) + "..."
             } else {

@@ -141,7 +141,7 @@ Thumbs.db
 # Sensitive files (auto-detected)
 build
 build.bat
-build.gradle.kts
+
 build_error.log
 build_error2.txt
 

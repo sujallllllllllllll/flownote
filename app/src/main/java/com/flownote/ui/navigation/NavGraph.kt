@@ -28,6 +28,9 @@ fun NavGraph(
                 },
                 onNewNoteClick = {
                     navController.navigate(Screen.NoteEditor.createRoute())
+                },
+                onSearchClick = {
+                    navController.navigate(Screen.Search.route)
                 }
             )
         }
@@ -43,11 +46,10 @@ fun NavGraph(
             )
         ) { backStackEntry ->
             val noteId = backStackEntry.arguments?.getString("noteId") ?: "new"
-            // NoteEditorScreen will be implemented in next phase
-            // NoteEditorScreen(
-            //     noteId = noteId,
-            //     onNavigateBack = { navController.popBackStack() }
-            // )
+            com.flownote.ui.screens.addedit.NoteEditorScreen(
+                noteId = noteId,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         
         // Categories screen
@@ -57,7 +59,12 @@ fun NavGraph(
         
         // Search screen
         composable(route = Screen.Search.route) {
-            // SearchScreen will be implemented in next phase
+            com.flownote.ui.screens.search.SearchScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNoteClick = { noteId ->
+                    navController.navigate(Screen.NoteEditor.createRoute(noteId))
+                }
+            )
         }
         
         // Settings screen

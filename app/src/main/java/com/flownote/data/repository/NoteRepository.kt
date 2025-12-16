@@ -165,7 +165,9 @@ class NoteRepository @Inject constructor(
             updatedAt = Date(updatedAt),
             isSynced = isSynced,
             isPinned = isPinned,
-            color = NoteColor.fromHex(color)
+            color = NoteColor.fromHex(color),
+            reminderTime = reminderTime?.let { Date(it) },
+            isChecklist = isChecklist
         )
     }
     
@@ -187,7 +189,9 @@ class NoteRepository @Inject constructor(
             updatedAt = updatedAt.time,
             isSynced = isSynced,
             isPinned = isPinned,
-            color = color.hexValue
+            color = color.hexValue,
+            reminderTime = reminderTime?.time,
+            isChecklist = isChecklist
         )
     }
 }

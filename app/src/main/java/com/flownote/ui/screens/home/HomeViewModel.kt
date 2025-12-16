@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,20 +33,37 @@ class HomeViewModel @Inject constructor(
     private val _selectedCategory = MutableStateFlow<Category?>(null)
     val selectedCategory: StateFlow<Category?> = _selectedCategory.asStateFlow()
     
+    // Selected tags filter
+    private val _selectedTags = MutableStateFlow<List<String>>(emptyList())
+    val selectedTags: StateFlow<List<String>> = _selectedTags.asStateFlow()
+    
     // All notes from repository
     private val allNotes = noteRepository.getAllNotes()
+    
+    // Available tags from all notes
+    val availableTags: StateFlow<List<String>> = allNotes.map { notes ->
+        notes.flatMap { it.tags }.distinct().sorted()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     
     // Filtered notes based on search and category
     val notes: StateFlow<List<Note>> = combine(
         allNotes,
         searchQuery,
-        selectedCategory
-    ) { notes, query, category ->
+        selectedCategory,
+        selectedTags
+    ) { notes, query, category, tags ->
         var filtered = notes
         
         // Filter by category
         if (category != null) {
             filtered = filtered.filter { it.category == category }
+        }
+        
+        // Filter by tags
+        if (tags.isNotEmpty()) {
+            filtered = filtered.filter { note ->
+                note.tags.containsAll(tags)
+            }
         }
         
         // Filter by search query
@@ -77,6 +95,44 @@ class HomeViewModel @Inject constructor(
     fun onCategorySelected(category: Category?) {
         _selectedCategory.value = category
     }
+
+    /**
+     * Toggle tag selection
+     */
+    fun toggleTagFilter(tag: String) {
+        val current = _selectedTags.value
+        if (current.contains(tag)) {
+            _selectedTags.value = current - tag
+        } else {
+            _selectedTags.value = current + tag
+        }
+    }
+
+    /**
+     * Create a new note from a template
+     */
+    suspend fun createNoteFromTemplate(template: com.flownote.data.model.Template): String {
+        val newNote = Note(
+            id = java.util.UUID.randomUUID().toString(),
+            title = template.name,
+            content = template.content,
+            category = template.category,
+            tags = emptyList(), // default
+            isTemporary = false, // default
+            deleteAfter = null, // default
+            hasAudio = false, // default
+            audioPath = null, // default
+            createdAt = java.util.Date(),
+            updatedAt = java.util.Date(),
+            isSynced = false, // default
+            isPinned = false, // default
+            color = com.flownote.data.model.NoteColor.DEFAULT, // default
+            reminderTime = null, // default
+            isChecklist = template.id == "todo"
+        )
+        noteRepository.saveNote(newNote)
+        return newNote.id
+    }
     
     /**
      * Delete a note
@@ -102,5 +158,6 @@ class HomeViewModel @Inject constructor(
     fun clearFilters() {
         _searchQuery.value = ""
         _selectedCategory.value = null
+        _selectedTags.value = emptyList()
     }
 }
