@@ -59,6 +59,14 @@ class HomeViewModel @Inject constructor(
             filtered = filtered.filter { it.category == category }
         }
         
+        // Filter out empty/ghost notes
+        filtered = filtered.filter { note -> 
+             note.title.isNotBlank() || 
+             note.getPlainTextContent().isNotBlank() || 
+             note.hasAudio || 
+             note.tags.isNotEmpty()
+        }
+        
         // Filter by tags
         if (tags.isNotEmpty()) {
             filtered = filtered.filter { note ->

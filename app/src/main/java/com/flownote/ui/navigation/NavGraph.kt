@@ -1,6 +1,10 @@
 package com.flownote.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -18,10 +22,30 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        enterTransition = {
+            slideInHorizontally(initialOffsetX = { it }) + fadeIn()
+        },
+        exitTransition = {
+            slideOutHorizontally(targetOffsetX = { -it / 5 }) + fadeOut()
+        },
+        popEnterTransition = {
+            slideInHorizontally(initialOffsetX = { -it / 5 }) + fadeIn()
+        },
+        popExitTransition = {
+            slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+        }
     ) {
         // Home screen (notes list)
-        composable(route = Screen.Home.route) {
+        composable(
+            route = Screen.Home.route,
+            exitTransition = {
+                 fadeOut()
+            },
+            popEnterTransition = {
+                 fadeIn()
+            }
+        ) {
             HomeScreen(
                 onNoteClick = { noteId ->
                     navController.navigate(Screen.NoteEditor.createRoute(noteId))
@@ -31,6 +55,15 @@ fun NavGraph(
                 },
                 onSearchClick = {
                     navController.navigate(Screen.Search.route)
+                },
+                onSettingsClick = {
+                    navController.navigate(Screen.Settings.route)
+                },
+                onPrivacyClick = {
+                    navController.navigate(Screen.PrivacyPolicy.route)
+                },
+                onContactClick = {
+                    navController.navigate(Screen.ContactUs.route)
                 }
             )
         }
@@ -43,7 +76,13 @@ fun NavGraph(
                     type = NavType.StringType
                     defaultValue = "new"
                 }
-            )
+            ),
+            enterTransition = {
+                slideInHorizontally(initialOffsetX = { it }) + fadeIn()
+            },
+            popExitTransition = {
+                slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+            }
         ) { backStackEntry ->
             val noteId = backStackEntry.arguments?.getString("noteId") ?: "new"
             com.flownote.ui.screens.addedit.NoteEditorScreen(
@@ -58,7 +97,15 @@ fun NavGraph(
         }
         
         // Search screen
-        composable(route = Screen.Search.route) {
+        composable(
+            route = Screen.Search.route,
+            enterTransition = {
+                fadeIn()
+            },
+            exitTransition = {
+                fadeOut()
+            }
+        ) {
             com.flownote.ui.screens.search.SearchScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNoteClick = { noteId ->
@@ -68,8 +115,66 @@ fun NavGraph(
         }
         
         // Settings screen
-        composable(route = Screen.Settings.route) {
-            // SettingsScreen will be implemented in next phase
+        composable(
+            route = Screen.Settings.route,
+            enterTransition = {
+                slideInHorizontally(initialOffsetX = { it }) + fadeIn()
+            },
+            exitTransition = {
+                slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
+            },
+            popEnterTransition = {
+                slideInHorizontally(initialOffsetX = { -it }) + fadeIn()
+            },
+            popExitTransition = {
+                slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+            }
+        ) {
+            com.flownote.ui.screens.settings.SettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Privacy Policy Screen
+        composable(
+            route = Screen.PrivacyPolicy.route,
+            enterTransition = {
+                slideInHorizontally(initialOffsetX = { it }) + fadeIn()
+            },
+            exitTransition = {
+                slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
+            },
+            popEnterTransition = {
+                slideInHorizontally(initialOffsetX = { -it }) + fadeIn()
+            },
+            popExitTransition = {
+                slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+            }
+        ) {
+             com.flownote.ui.screens.info.PrivacyPolicyScreen(
+                 onNavigateBack = { navController.popBackStack() }
+             )
+        }
+
+        // Contact Us Screen
+        composable(
+            route = Screen.ContactUs.route,
+            enterTransition = {
+                slideInHorizontally(initialOffsetX = { it }) + fadeIn()
+            },
+            exitTransition = {
+                slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
+            },
+            popEnterTransition = {
+                slideInHorizontally(initialOffsetX = { -it }) + fadeIn()
+            },
+            popExitTransition = {
+                slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+            }
+        ) {
+             com.flownote.ui.screens.info.ContactUsScreen(
+                 onNavigateBack = { navController.popBackStack() }
+             )
         }
     }
 }

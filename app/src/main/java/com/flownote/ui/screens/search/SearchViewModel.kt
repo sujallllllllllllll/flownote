@@ -33,7 +33,7 @@ class SearchViewModel @Inject constructor(
         } else {
             notes.filter { note ->
                 note.title.contains(query, ignoreCase = true) ||
-                note.content.contains(query, ignoreCase = true) ||
+                note.getPlainTextContent().contains(query, ignoreCase = true) ||
                 note.tags.any { it.contains(query, ignoreCase = true) }
             }.sortedByDescending { it.updatedAt }
         }

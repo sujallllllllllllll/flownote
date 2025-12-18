@@ -10,6 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.flownote.ui.navigation.NavGraph
 import com.flownote.ui.theme.FlowNoteTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.isSystemInDarkTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -21,7 +24,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            FlowNoteTheme {
+            val settingsViewModel: com.flownote.ui.screens.settings.SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val themeMode by settingsViewModel.themeMode.collectAsState()
+            val useDynamicColors by settingsViewModel.useDynamicColors.collectAsState()
+
+            val darkTheme = when (themeMode) {
+                com.flownote.data.repository.ThemeMode.LIGHT -> false
+                com.flownote.data.repository.ThemeMode.DARK -> true
+                else -> isSystemInDarkTheme() // SYSTEM or default
+            }
+
+            FlowNoteTheme(
+                darkTheme = darkTheme,
+                dynamicColor = useDynamicColors
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
