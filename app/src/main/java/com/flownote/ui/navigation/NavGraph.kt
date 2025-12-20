@@ -5,6 +5,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -12,17 +13,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.flownote.ui.screens.home.HomeScreen
 
+
 /**
  * Navigation graph for the app
  */
 @Composable
 fun NavGraph(
     navController: NavHostController,
+    modifier: Modifier = Modifier,
     startDestination: String = Screen.Home.route
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination,
+        modifier = modifier,
         enterTransition = {
             slideInHorizontally(initialOffsetX = { it }) + fadeIn()
         },
@@ -39,12 +43,8 @@ fun NavGraph(
         // Home screen (notes list)
         composable(
             route = Screen.Home.route,
-            exitTransition = {
-                 fadeOut()
-            },
-            popEnterTransition = {
-                 fadeIn()
-            }
+            exitTransition = { fadeOut() },
+            popEnterTransition = { fadeIn() }
         ) {
             HomeScreen(
                 onNoteClick = { noteId ->
@@ -55,18 +55,11 @@ fun NavGraph(
                 },
                 onSearchClick = {
                     navController.navigate(Screen.Search.route)
-                },
-                onSettingsClick = {
-                    navController.navigate(Screen.Settings.route)
-                },
-                onPrivacyClick = {
-                    navController.navigate(Screen.PrivacyPolicy.route)
-                },
-                onContactClick = {
-                    navController.navigate(Screen.ContactUs.route)
                 }
             )
         }
+        
+
         
         // Note editor screen
         composable(
@@ -91,20 +84,11 @@ fun NavGraph(
             )
         }
         
-        // Categories screen
-        composable(route = Screen.Categories.route) {
-            // CategoriesScreen will be implemented in next phase
-        }
-        
         // Search screen
         composable(
             route = Screen.Search.route,
-            enterTransition = {
-                fadeIn()
-            },
-            exitTransition = {
-                fadeOut()
-            }
+            enterTransition = { fadeIn() },
+            exitTransition = { fadeOut() }
         ) {
             com.flownote.ui.screens.search.SearchScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -122,16 +106,11 @@ fun NavGraph(
             },
             exitTransition = {
                 slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
-            },
-            popEnterTransition = {
-                slideInHorizontally(initialOffsetX = { -it }) + fadeIn()
-            },
-            popExitTransition = {
-                slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
             }
         ) {
             com.flownote.ui.screens.settings.SettingsScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onPrivacyClick = { navController.navigate(Screen.PrivacyPolicy.route) },
+                onContactClick = { navController.navigate(Screen.ContactUs.route) }
             )
         }
         
@@ -140,12 +119,6 @@ fun NavGraph(
             route = Screen.PrivacyPolicy.route,
             enterTransition = {
                 slideInHorizontally(initialOffsetX = { it }) + fadeIn()
-            },
-            exitTransition = {
-                slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
-            },
-            popEnterTransition = {
-                slideInHorizontally(initialOffsetX = { -it }) + fadeIn()
             },
             popExitTransition = {
                 slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
@@ -161,12 +134,6 @@ fun NavGraph(
             route = Screen.ContactUs.route,
             enterTransition = {
                 slideInHorizontally(initialOffsetX = { it }) + fadeIn()
-            },
-            exitTransition = {
-                slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
-            },
-            popEnterTransition = {
-                slideInHorizontally(initialOffsetX = { -it }) + fadeIn()
             },
             popExitTransition = {
                 slideOutHorizontally(targetOffsetX = { it }) + fadeOut()

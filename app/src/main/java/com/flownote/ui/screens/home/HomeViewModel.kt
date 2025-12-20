@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,7 +20,9 @@ import javax.inject.Inject
 /**
  * ViewModel for Home screen
  * Manages notes list, search, and filtering
+ * Optimized version using database-side filtering
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val noteRepository: NoteRepository
@@ -33,61 +36,48 @@ class HomeViewModel @Inject constructor(
     private val _selectedCategory = MutableStateFlow<Category?>(null)
     val selectedCategory: StateFlow<Category?> = _selectedCategory.asStateFlow()
     
-    // Selected tags filter
+    // Selected tags filter (client-side for now, can be optimized later)
     private val _selectedTags = MutableStateFlow<List<String>>(emptyList())
     val selectedTags: StateFlow<List<String>> = _selectedTags.asStateFlow()
     
-    // All notes from repository
-    private val allNotes = noteRepository.getAllNotes()
+    // All notes from repository (using optimized query)
+    private val filteredNotesFlow = combine(
+        selectedCategory,
+        searchQuery,
+        selectedTags
+    ) { category, query, tags ->
+        Triple(category, query, tags)
+    }.flatMapLatest { (category, query, tags) ->
+        noteRepository.getFilteredNotes(category, query).map { notes ->
+            // Apply tag filtering (client-side for now)
+            if (tags.isNotEmpty()) {
+                notes.filter { note -> note.tags.containsAll(tags) }
+            } else {
+                notes
+            }
+        }
+    }
     
     // Available tags from all notes
-    val availableTags: StateFlow<List<String>> = allNotes.map { notes ->
+    val availableTags: StateFlow<List<String>> = noteRepository.getAllNotes().map { notes ->
         notes.flatMap { it.tags }.distinct().sorted()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     
-    // Filtered notes based on search and category
-    val notes: StateFlow<List<Note>> = combine(
-        allNotes,
-        searchQuery,
-        selectedCategory,
-        selectedTags
-    ) { notes, query, category, tags ->
-        var filtered = notes
+    // UI State separating pinned and other notes
+    val uiState: StateFlow<HomeUiState> = filteredNotesFlow.map { notes ->
+        // Separate pinned and other notes
+        val pinnedNotes = notes.filter { it.isPinned }
+        val otherNotes = notes.filter { !it.isPinned }
         
-        // Filter by category
-        if (category != null) {
-            filtered = filtered.filter { it.category == category }
-        }
-        
-        // Filter out empty/ghost notes
-        filtered = filtered.filter { note -> 
-             note.title.isNotBlank() || 
-             note.getPlainTextContent().isNotBlank() || 
-             note.hasAudio || 
-             note.tags.isNotEmpty()
-        }
-        
-        // Filter by tags
-        if (tags.isNotEmpty()) {
-            filtered = filtered.filter { note ->
-                note.tags.containsAll(tags)
-            }
-        }
-        
-        // Filter by search query
-        if (query.isNotBlank()) {
-            filtered = filtered.filter { note ->
-                note.title.contains(query, ignoreCase = true) ||
-                note.content.contains(query, ignoreCase = true) ||
-                note.tags.any { it.contains(query, ignoreCase = true) }
-            }
-        }
-        
-        filtered
+        HomeUiState(
+            pinnedNotes = pinnedNotes,
+            otherNotes = otherNotes,
+            allNotes = notes
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
+        initialValue = HomeUiState()
     )
     
     /**
@@ -169,3 +159,13 @@ class HomeViewModel @Inject constructor(
         _selectedTags.value = emptyList()
     }
 }
+
+/**
+ * UI State for Home screen
+ * Separates pinned and other notes for easier UI rendering
+ */
+data class HomeUiState(
+    val pinnedNotes: List<Note> = emptyList(),
+    val otherNotes: List<Note> = emptyList(),
+    val allNotes: List<Note> = emptyList()
+)

@@ -87,6 +87,13 @@ class NoteEditorViewModel @Inject constructor(
     private val _tags = MutableStateFlow<List<String>>(emptyList())
     val tags: StateFlow<List<String>> = _tags.asStateFlow()
     
+    // Temporary Note State
+    private val _isTemporary = MutableStateFlow(false)
+    val isTemporary: StateFlow<Boolean> = _isTemporary.asStateFlow()
+    
+    private val _deleteAfter = MutableStateFlow<Date?>(null)
+    val deleteAfter: StateFlow<Date?> = _deleteAfter.asStateFlow()
+    
     val speechState = speechManager.speechState
     
     private var currentNote: Note? = null
@@ -113,6 +120,8 @@ class NoteEditorViewModel @Inject constructor(
                 _hasAudio.value = it.hasAudio
                 _audioPath.value = it.audioPath
                 _tags.value = it.tags
+                _isTemporary.value = it.isTemporary
+                _deleteAfter.value = it.deleteAfter
                 _lastEdited.value = com.flownote.util.DateUtils.formatDate(it.updatedAt)
             }
             _isLoading.value = false
@@ -145,6 +154,23 @@ class NoteEditorViewModel @Inject constructor(
         _reminderTime.value = date
     }
     
+    fun setAsTemporary(isTemp: Boolean) {
+        _isTemporary.value = isTemp
+        if (!isTemp) {
+            _deleteAfter.value = null
+        }
+    }
+    
+    fun setExpirationDate(date: Date) {
+        _deleteAfter.value = date
+        _isTemporary.value = true
+    }
+    
+    fun removeExpiration() {
+        _isTemporary.value = false
+        _deleteAfter.value = null
+    }
+    
     fun deleteNote() {
         currentNote?.let {
             viewModelScope.launch {
@@ -167,6 +193,8 @@ class NoteEditorViewModel @Inject constructor(
                 reminderTime = _reminderTime.value,
                 hasAudio = _hasAudio.value,
                 audioPath = _audioPath.value,
+                isTemporary = _isTemporary.value,
+                deleteAfter = _deleteAfter.value,
                 updatedAt = java.util.Date()
             ) ?: Note(
                 id = UUID.randomUUID().toString(),
@@ -174,8 +202,8 @@ class NoteEditorViewModel @Inject constructor(
                 content = _content.value,
                 category = _category.value,
                 tags = _tags.value,
-                isTemporary = false,
-                deleteAfter = null,
+                isTemporary = _isTemporary.value,
+                deleteAfter = _deleteAfter.value,
                 hasAudio = _hasAudio.value,
                 audioPath = _audioPath.value,
                 createdAt = java.util.Date(),

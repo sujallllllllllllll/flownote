@@ -56,6 +56,21 @@ class NoteRepository @Inject constructor(
     }
     
     /**
+     * Get filtered notes (optimized database query)
+     */
+    fun getFilteredNotes(
+        category: Category?,
+        query: String
+    ): Flow<List<Note>> {
+        return noteDao.getFilteredNotes(
+            category = category?.displayName,
+            query = query
+        ).map { entities ->
+            entities.map { it.toNote() }
+        }
+    }
+    
+    /**
      * Get temporary notes
      */
     fun getTemporaryNotes(): Flow<List<Note>> {
@@ -143,6 +158,20 @@ class NoteRepository @Inject constructor(
      */
     suspend fun getCountByCategory(category: Category): Int {
         return noteDao.getCountByCategory(category.displayName)
+    }
+    
+    /**
+     * Get all notes as a one-time list (for backup)
+     */
+    suspend fun getAllNotesOneTime(): List<Note> {
+        return noteDao.getAllNotesOneTime().map { it.toNote() }
+    }
+    
+    /**
+     * Delete all notes (for clearing data)
+     */
+    suspend fun deleteAllNotes() {
+        noteDao.deleteAllNotes()
     }
     
     // Extension functions for conversion

@@ -37,6 +37,21 @@ interface NoteDao {
     fun searchNotes(query: String): Flow<List<NoteEntity>>
     
     /**
+     * Get filtered notes (optimized query combining all filters)
+     */
+    @Query("""
+        SELECT * FROM notes 
+        WHERE (:category IS NULL OR category = :category)
+        AND (:query = '' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%')
+        AND (title != '' OR content != '' OR hasAudio = 1)
+        ORDER BY isPinned DESC, updatedAt DESC
+    """)
+    fun getFilteredNotes(
+        category: String?,
+        query: String
+    ): Flow<List<NoteEntity>>
+    
+    /**
      * Get notes by category
      */
     @Query("SELECT * FROM notes WHERE category = :category ORDER BY isPinned DESC, updatedAt DESC")
@@ -107,4 +122,10 @@ interface NoteDao {
      */
     @Query("SELECT COUNT(*) FROM notes WHERE category = :category")
     suspend fun getCountByCategory(category: String): Int
+    
+    /**
+     * Get all notes as a one-time list (for backup)
+     */
+    @Query("SELECT * FROM notes ORDER BY isPinned DESC, updatedAt DESC")
+    suspend fun getAllNotesOneTime(): List<NoteEntity>
 }

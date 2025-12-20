@@ -22,7 +22,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.automirrored.filled.Label
-import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
@@ -92,6 +92,10 @@ fun NoteEditorScreen(
     val reminderTime by viewModel.reminderTime.collectAsState()
     val lastEdited by viewModel.lastEdited.collectAsState()
     val isNoteSaved by viewModel.isNoteSaved.collectAsState()
+    
+    // Temporary note state
+    val isTemporary by viewModel.isTemporary.collectAsState()
+    val deleteAfter by viewModel.deleteAfter.collectAsState()
     
     val isRecordingAudio by viewModel.isRecordingAudio.collectAsState()
     val isPlayingAudio by viewModel.isPlayingAudio.collectAsState()
@@ -166,6 +170,7 @@ fun NoteEditorScreen(
     // Reminder Dialogs State
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var pickerMode by remember { mutableStateOf("reminder") } // "reminder" or "expiration"
     val datePickerState = rememberDatePickerState()
     val timePickerState = rememberTimePickerState()
     
@@ -213,7 +218,12 @@ fun NoteEditorScreen(
                          val finalCalendar = Calendar.getInstance()
                          finalCalendar.set(utcCalendar.get(Calendar.YEAR), utcCalendar.get(Calendar.MONTH), utcCalendar.get(Calendar.DAY_OF_MONTH), timePickerState.hour, timePickerState.minute)
                          
-                         viewModel.setReminder(finalCalendar.time)
+                         // Set based on picker mode
+                         if (pickerMode == "expiration") {
+                             viewModel.setExpirationDate(finalCalendar.time)
+                         } else {
+                             viewModel.setReminder(finalCalendar.time)
+                         }
                      }
                  }) {
                      Text("Confirm")
@@ -282,10 +292,36 @@ fun NoteEditorScreen(
                                 leadingIcon = { Icon(Icons.Default.Alarm, null) },
                                 onClick = {
                                     showMenu = false
+                                    pickerMode = "reminder"
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                     }
                                     showDatePicker = true
+                                }
+                            )
+                            
+                            // Temporary Note
+                            DropdownMenuItem(
+                                text = { 
+                                    Text(
+                                        if (isTemporary) "Remove Expiration" else "Set as Temporary"
+                                    ) 
+                                },
+                                leadingIcon = { 
+                                    Icon(
+                                        if (isTemporary) Icons.Default.AlarmOff else Icons.Default.Alarm,
+                                        null,
+                                        tint = if (isTemporary) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                    ) 
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    if (isTemporary) {
+                                        viewModel.removeExpiration()
+                                    } else {
+                                        pickerMode = "expiration"
+                                        showDatePicker = true
+                                    }
                                 }
                             )
                             
@@ -581,7 +617,7 @@ fun RichTextEditorToolbar(
         )
         // Bullet List
         ToolbarButton(
-            icon = Icons.Default.FormatListBulleted,
+            icon = Icons.AutoMirrored.Filled.FormatListBulleted,
             isSelected = false, 
             onClick = { state.toggleUnorderedList() },
             contentColor = contentColor

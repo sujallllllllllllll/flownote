@@ -7,8 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.navigation.compose.rememberNavController
-import com.flownote.ui.navigation.NavGraph
+import com.flownote.ui.MainScreen
 import com.flownote.ui.theme.FlowNoteTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,10 +18,13 @@ import dagger.hilt.android.AndroidEntryPoint
  * Main activity for FlowNote
  * Entry point of the app
  */
+import androidx.activity.enableEdgeToEdge
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             val settingsViewModel: com.flownote.ui.screens.settings.SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             val themeMode by settingsViewModel.themeMode.collectAsState()
@@ -42,8 +44,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val navController = rememberNavController()
-                    NavGraph(navController = navController)
+                    MainScreen()
                 }
             }
         }

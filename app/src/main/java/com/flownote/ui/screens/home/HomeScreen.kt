@@ -63,113 +63,45 @@ fun HomeScreen(
     onNoteClick: (String) -> Unit,
     onNewNoteClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    onPrivacyClick: () -> Unit,
-    onContactClick: () -> Unit
+    modifier: Modifier = Modifier
 ) {
-    val notes by viewModel.notes.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedTags by viewModel.selectedTags.collectAsState()
     val availableTags by viewModel.availableTags.collectAsState()
     
-    // Separate pinned notes
-    val pinnedNotes = notes.filter { it.isPinned }
-    val otherNotes = notes.filter { !it.isPinned }
+    // Use notes from UI state
+    val pinnedNotes = uiState.pinnedNotes
+    val otherNotes = uiState.otherNotes
+    val allNotes = uiState.allNotes
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     var isSearchActive by remember { mutableStateOf(false) }
 
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                // Drawer Header
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(dimensionResource(id = R.dimen.drawer_header_height))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = "FlowNotes",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(dimensionResource(id = R.dimen.spacing_medium))
-                    )
-                }
-                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_small)))
-
-                // Navigation Items
-                NavigationDrawerItem(
-                    label = { Text("Settings") },
-                    icon = { Icon(Icons.Filled.Settings, null) },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        onSettingsClick()
+    Scaffold(
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            Column(
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+            ) {
+                // 1. TopAppBar
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "FlowNotes",
+                            style = MaterialTheme.typography.titleLarge
+                        )
                     },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Privacy Policy") },
-                    icon = { Icon(Icons.Default.Description, null) }, // Using Description as generic doc icon
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        onPrivacyClick()
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Contact Us") },
-                    icon = { Icon(Icons.Default.Menu, null) }, // Placeholder, changing to Email if available or generic
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        onContactClick()
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-            }
-        }
-    ) {
-        Scaffold(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-            topBar = {
-                Column(
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                ) {
-                    // 1. TopAppBar
-                    CenterAlignedTopAppBar(
-                        title = {
-                            Text(
-                                text = "FlowNotes",
-                                style = MaterialTheme.typography.titleLarge
+                    // Navigation Icon removed
+                    actions = {
+                        IconButton(onClick = { isSearchActive = !isSearchActive }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search"
                             )
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Menu"
-                                )
-                            }
-                        },
-                        actions = {
-                            IconButton(onClick = { isSearchActive = !isSearchActive }) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search"
-                                )
-                            }
-                        },
+                        }
+                    },
                         scrollBehavior = scrollBehavior,
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                             containerColor = MaterialTheme.colorScheme.surface,
@@ -317,122 +249,9 @@ fun HomeScreen(
                     }
                 }
             },
-        floatingActionButton = {
-            var isFabExpanded by remember { mutableStateOf(false) }
-            var showTemplateDialog by remember { mutableStateOf(false) }
 
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.spacing_medium)),
-                modifier = Modifier.padding(bottom = dimensionResource(id = R.dimen.spacing_xsmall))
-            ) {
-                // Secondary FABs (Speed Dial)
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isFabExpanded,
-                    enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + androidx.compose.animation.fadeOut()
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.spacing_small))
-                    ) {
-                        // Template Option
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Text(
-                                text = "Template",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(dimensionResource(id = R.dimen.corner_radius_small)))
-                                    .padding(horizontal = dimensionResource(id = R.dimen.spacing_xsmall), vertical = dimensionResource(id = R.dimen.spacing_xxsmall))
-                            )
-                            Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
-                            SmallFloatingActionButton(
-                                onClick = { 
-                                    isFabExpanded = false
-                                    showTemplateDialog = true
-                                },
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            ) {
-                                Icon(Icons.Default.Description, "Template")
-                            }
-                        }
-
-                        // Text Note Option
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Text(
-                                text = "Text Note",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(dimensionResource(id = R.dimen.corner_radius_small)))
-                                    .padding(horizontal = dimensionResource(id = R.dimen.spacing_xsmall), vertical = dimensionResource(id = R.dimen.spacing_xxsmall))
-                            )
-                            Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
-                            SmallFloatingActionButton(
-                                onClick = { 
-                                    isFabExpanded = false
-                                    onNewNoteClick() 
-                                },
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            ) {
-                                Icon(Icons.Default.Edit, "Text Note")
-                            }
-                        }
-                    }
-                }
-
-                // Main Toggle FAB
-                // Main Toggle FAB
-                val rotation by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = if (isFabExpanded) 45f else 0f,
-                    label = "fab_rotation"
-                )
-
-                FloatingActionButton(
-                    onClick = { isFabExpanded = !isFabExpanded },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    elevation = FloatingActionButtonDefaults.elevation(
-                        dimensionResource(id = R.dimen.elevation_level_3),
-                        dimensionResource(id = R.dimen.elevation_level_5)
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Expand",
-                        modifier = Modifier.graphicsLayer {
-                            rotationZ = rotation
-                        }
-                    )
-                }
-
-                if (showTemplateDialog) {
-                    val scope = rememberCoroutineScope()
-                    com.flownote.ui.components.TemplateSelectionDialog(
-                        templates = com.flownote.data.repository.TemplateRepository.getDefaultTemplates(),
-                        onDismiss = { showTemplateDialog = false },
-                        onTemplateSelected = { template ->
-                            showTemplateDialog = false
-                            scope.launch {
-                                val newNoteId = viewModel.createNoteFromTemplate(template)
-                                onNoteClick(newNoteId)
-                            }
-                        }
-                    )
-                }
-            }
-        }
     ) { paddingValues ->
-        if (notes.isEmpty() && searchQuery.isEmpty() && selectedCategory == null) {
+        if (allNotes.isEmpty() && searchQuery.isEmpty() && selectedCategory == null) {
             EmptyState(paddingValues)
         } else {
             LazyVerticalStaggeredGrid(
@@ -484,7 +303,7 @@ fun HomeScreen(
             }
         }
     }
-    }
+
 }
 
 @Composable
@@ -522,9 +341,9 @@ fun EmptyState(paddingValues: PaddingValues) {
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
+
     }
 }
-
 @Composable
 
 
@@ -613,7 +432,7 @@ fun NoteCard(
                 scaleX = scale
                 scaleY = scale
             },
-            },
+
         shape = RoundedCornerShape(dimensionResource(id = R.dimen.card_corner_radius)), // Standard M3 shape
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface // M3 standard card color
