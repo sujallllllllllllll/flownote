@@ -51,7 +51,7 @@ fun NavGraph(
                     navController.navigate(Screen.NoteEditor.createRoute(noteId))
                 },
                 onNewNoteClick = {
-                    navController.navigate(Screen.NoteEditor.createRoute())
+                    navController.navigate(Screen.NoteEditor.createRoute("new"))
                 },
                 onSearchClick = {
                     navController.navigate(Screen.Search.route)
@@ -98,6 +98,28 @@ fun NavGraph(
             )
         }
         
+        // HIDDEN FOR MVP - Template List Screen
+        // Uncomment to enable templates
+        /*
+        composable(Screen.TemplateList.route) {
+            TemplateListScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onTemplateSelect = { templateId ->
+                    navController.navigate(Screen.NoteEditor.createRoute("new?template=$templateId")) {
+                        popUpTo(Screen.Home.route)
+                    }
+                }
+            )
+        }
+        */
+        
+        // Upcoming Features
+        composable(Screen.UpcomingFeatures.route) {
+            com.flownote.ui.screens.info.UpcomingFeaturesScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
         // Settings screen
         composable(
             route = Screen.Settings.route,
@@ -109,8 +131,9 @@ fun NavGraph(
             }
         ) {
             com.flownote.ui.screens.settings.SettingsScreen(
-                onPrivacyClick = { navController.navigate(Screen.PrivacyPolicy.route) },
-                onContactClick = { navController.navigate(Screen.ContactUs.route) }
+                onNavigateToContactUs = { navController.navigate(Screen.ContactUs.route) },
+                onNavigateToPrivacyPolicy = { navController.navigate(Screen.PrivacyPolicy.route) },
+                onNavigateToUpcomingFeatures = { navController.navigate(Screen.UpcomingFeatures.route) }
             )
         }
         

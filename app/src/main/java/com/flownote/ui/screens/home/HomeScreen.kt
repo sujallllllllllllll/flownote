@@ -44,6 +44,13 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.toUpperCase
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -76,76 +83,88 @@ fun HomeScreen(
     val otherNotes = uiState.otherNotes
     val allNotes = uiState.allNotes
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     var isSearchActive by remember { mutableStateOf(false) }
 
     Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier,
         topBar = {
             Column(
-                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surface)
+                    .statusBarsPadding()
             ) {
                 // 1. TopAppBar
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
                             text = "FlowNotes",
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.primary
                         )
                     },
                     // Navigation Icon removed
                     actions = {
-                        IconButton(onClick = { isSearchActive = !isSearchActive }) {
+                        IconButton(
+                            onClick = { isSearchActive = !isSearchActive }
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
-                                contentDescription = "Search"
+                                contentDescription = "Search",
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     },
-                        scrollBehavior = scrollBehavior,
-                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(dimensionResource(id = R.dimen.elevation_level_2))
-                        )
-                    )
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    windowInsets = WindowInsets(0, 0, 0, 0)
+                )
 
-                    // 2. Collapsible Search Bar
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = isSearchActive || searchQuery.isNotEmpty(),
-                    ) {
-                        DockedSearchBar(
-                            inputField = {
-                                SearchBarDefaults.InputField(
-                                    query = searchQuery,
-                                    onQueryChange = viewModel::onSearchQueryChange,
-                                    onSearch = { isSearchActive = false },
-                                    expanded = false,
-                                    onExpandedChange = { },
-                                    placeholder = { Text(stringResource(R.string.search_hint)) },
-                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                                    trailingIcon = {
-                                        if (searchQuery.isNotEmpty()) {
-                                            IconButton(onClick = viewModel::clearFilters) {
-                                                Icon(Icons.Default.Close, contentDescription = "Clear")
-                                            }
+                // Subtle divider
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
+
+                // 2. Collapsible Search Bar
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isSearchActive || searchQuery.isNotEmpty(),
+                ) {
+                    DockedSearchBar(
+                        inputField = {
+                            SearchBarDefaults.InputField(
+                                query = searchQuery,
+                                onQueryChange = viewModel::onSearchQueryChange,
+                                onSearch = { isSearchActive = false },
+                                expanded = false,
+                                onExpandedChange = { },
+                                placeholder = { Text(stringResource(R.string.search_hint)) },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = viewModel::clearFilters) {
+                                            Icon(Icons.Default.Close, contentDescription = "Clear")
                                         }
-                                    },
-                                )
-                            },
-                            expanded = false,
-                            onExpandedChange = { },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal), vertical = dimensionResource(id = R.dimen.spacing_xsmall))
-                        ) {}
-                    }
+                                    }
+                                },
+                            )
+                        },
+                        expanded = false,
+                        onExpandedChange = { },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal))
+                    ) {}
+                }
 
-                    // 3. Category Filter Chips (LazyRow)
-                    androidx.compose.foundation.lazy.LazyRow(
-                        contentPadding = PaddingValues(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
-                        horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.chip_spacing)),
-                        modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))
-                    ) {
+                // 3. Category Filter Chips (LazyRow)
+                androidx.compose.foundation.lazy.LazyRow(
+                    contentPadding = PaddingValues(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
+                    horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.chip_spacing)),
+                    modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))
+                ) {
                         // "All" Chip
                         item {
                             val isSelected = selectedCategory == null
@@ -253,14 +272,48 @@ fun HomeScreen(
     ) { paddingValues ->
         if (allNotes.isEmpty() && searchQuery.isEmpty() && selectedCategory == null) {
             EmptyState(paddingValues)
+        } else if (allNotes.isEmpty() && (searchQuery.isNotEmpty() || selectedCategory != null || selectedTags.isNotEmpty())) {
+            // No results found for search/filter
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .padding(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "No notes found",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Try adjusting your search or filters",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
         } else {
             LazyVerticalStaggeredGrid(
                 columns = StaggeredGridCells.Fixed(2),
                 contentPadding = PaddingValues(
                     start = dimensionResource(id = R.dimen.screen_margin_horizontal), 
                     end = dimensionResource(id = R.dimen.screen_margin_horizontal), 
-                    top = dimensionResource(id = R.dimen.screen_margin_horizontal), // No dynamic padding here, handled by Modifier
-                    bottom = dimensionResource(id = R.dimen.bottom_nav_height) // Space for FAB
+                    top = dimensionResource(id = R.dimen.spacing_xsmall), // 8dp - reduced from 16dp
+                    bottom = dimensionResource(id = R.dimen.spacing_medium) // 16dp - comfortable scroll space
                 ),
                 horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.spacing_small)),
                 verticalItemSpacing = dimensionResource(id = R.dimen.spacing_small),
@@ -279,7 +332,7 @@ fun HomeScreen(
                         )
                     }
                     items(items = pinnedNotes, key = { it.id }) { note ->
-                        NoteCard(note = note, onClick = { onNoteClick(note.id) })
+                        NoteCard(note = note, onClick = { onNoteClick(note.id) }, searchQuery = searchQuery)
                     }
                 }
                 
@@ -290,14 +343,14 @@ fun HomeScreen(
                             text = "Others",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))
                         )
                     }
                 }
                 
                 items(items = otherNotes, key = { it.id }) { note ->
                     Box(modifier = Modifier.animateItem()) {
-                        NoteCard(note = note, onClick = { onNoteClick(note.id) })
+                        NoteCard(note = note, onClick = { onNoteClick(note.id) }, searchQuery = searchQuery)
                     }
                 }
             }
@@ -322,12 +375,12 @@ fun EmptyState(paddingValues: PaddingValues) {
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(dimensionResource(id = R.dimen.top_app_bar_height))
+                    .size(64.dp) // Increased for better visibility
                     .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
                     .padding(dimensionResource(id = R.dimen.spacing_medium)),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_medium)))
+            Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_small)))
             Text(
                 text = stringResource(R.string.empty_notes_title),
                 style = MaterialTheme.typography.headlineSmall,
@@ -411,7 +464,8 @@ fun getCategoryIcon(category: Category): androidx.compose.ui.graphics.vector.Ima
 @Composable
 fun NoteCard(
     note: Note,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    searchQuery: String = ""
 ) {
     val categoryColor = getCategoryColor(note.category)
     val interactionSource = remember { MutableInteractionSource() }
@@ -474,16 +528,24 @@ fun NoteCard(
                     verticalAlignment = Alignment.Top,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = note.title.ifBlank { "Untitled" },
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                        // Highlight title matches
+                        val titleText = note.title.ifBlank { "Untitled" }
+                        val titleAnnotated = buildHighlightedAnnotatedString(
+                            text = titleText,
+                            query = searchQuery,
+                            highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                        )
+
+                        Text(
+                            text = titleAnnotated,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
                     
                     if (note.isPinned) {
                         Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
@@ -501,8 +563,14 @@ fun NoteCard(
                 // Content Preview
                 val plainContent = note.getPlainTextContent().cleanHtmlEntities()
                 if (plainContent.isNotBlank()) {
-                    Text(
+                    val contentAnnotated = buildHighlightedAnnotatedString(
                         text = plainContent,
+                        query = searchQuery,
+                        highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    )
+
+                    Text(
+                        text = contentAnnotated,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 3,
@@ -545,5 +613,25 @@ fun NoteCard(
                 }
             }
         }
+    }
+}
+
+// Helper to build an AnnotatedString with highlighted query matches
+fun buildHighlightedAnnotatedString(text: String, query: String, highlightColor: Color): AnnotatedString {
+    if (query.isBlank()) return AnnotatedString(text)
+    val lower = text.lowercase()
+    val q = query.lowercase()
+    return buildAnnotatedString {
+        var start = 0
+        var idx = lower.indexOf(q, start)
+        while (idx >= 0) {
+            if (idx > start) append(text.substring(start, idx))
+            withStyle(SpanStyle(background = highlightColor)) {
+                append(text.substring(idx, idx + q.length))
+            }
+            start = idx + q.length
+            idx = lower.indexOf(q, start)
+        }
+        if (start < text.length) append(text.substring(start))
     }
 }

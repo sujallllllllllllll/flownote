@@ -30,8 +30,9 @@ interface NoteDao {
      */
     @Query("""
         SELECT * FROM notes 
-        WHERE title LIKE '%' || :query || '%' 
-        OR content LIKE '%' || :query || '%'
+        WHERE LOWER(title) LIKE '%' || LOWER(:query) || '%' 
+        OR LOWER(content) LIKE '%' || LOWER(:query) || '%'
+        OR LOWER(tags) LIKE '%' || LOWER(:query) || '%'
         ORDER BY isPinned DESC, updatedAt DESC
     """)
     fun searchNotes(query: String): Flow<List<NoteEntity>>
@@ -42,7 +43,7 @@ interface NoteDao {
     @Query("""
         SELECT * FROM notes 
         WHERE (:category IS NULL OR category = :category)
-        AND (:query = '' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%')
+        AND (:query = '' OR LOWER(title) LIKE '%' || LOWER(:query) || '%' OR LOWER(content) LIKE '%' || LOWER(:query) || '%' OR LOWER(tags) LIKE '%' || LOWER(:query) || '%')
         AND (title != '' OR content != '' OR hasAudio = 1)
         ORDER BY isPinned DESC, updatedAt DESC
     """)

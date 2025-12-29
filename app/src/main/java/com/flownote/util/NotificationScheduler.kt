@@ -37,17 +37,42 @@ class NotificationScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Schedule the alarm
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Use setExactAndAllowWhileIdle for API 23+
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                time.time,
-                pendingIntent
-            )
-        } else {
-            // Use setExact for older versions
-            alarmManager.setExact(
+        // Schedule the alarm with exact timing
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Android 12+ - Check if we can schedule exact alarms
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        time.time,
+                        pendingIntent
+                    )
+                } else {
+                    // Fallback to inexact alarm if permission not granted
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        time.time,
+                        pendingIntent
+                    )
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Android 6.0 to 11 - Use setExactAndAllowWhileIdle
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    time.time,
+                    pendingIntent
+                )
+            } else {
+                // Below Android 6.0 - Use setExact
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    time.time,
+                    pendingIntent
+                )
+            }
+        } catch (e: SecurityException) {
+            // If exact alarms are not allowed, use inexact alarm
+            alarmManager.setAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
                 time.time,
                 pendingIntent

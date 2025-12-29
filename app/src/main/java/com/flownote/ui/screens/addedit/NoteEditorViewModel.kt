@@ -15,6 +15,8 @@ import com.flownote.util.SpeechToTextManager
 import com.flownote.util.ExportUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -97,12 +99,26 @@ class NoteEditorViewModel @Inject constructor(
     val speechState = speechManager.speechState
     
     private var currentNote: Note? = null
+    
+    // Auto-save state
+    private var autoSaveJob: Job? = null
+    private var isDeleted = false // Prevent resurrection after deletion
 
     init {
         if (noteId != null && noteId != "new") {
             loadNote(noteId)
         }
     }
+    
+    // Robust empty check (strips HTML)
+    private val isNoteEmpty: Boolean
+        get() {
+            val plainContent = android.text.Html.fromHtml(_content.value, android.text.Html.FROM_HTML_MODE_COMPACT).toString().trim()
+            val isContentEmpty = plainContent.isBlank()
+            val isTitleEmpty = _title.value.isBlank()
+            return isContentEmpty && isTitleEmpty
+        }
+
     
     private fun loadNote(id: String) {
         viewModelScope.launch {
@@ -130,10 +146,12 @@ class NoteEditorViewModel @Inject constructor(
     
     fun onTitleChange(newTitle: String) {
         _title.value = newTitle
+        triggerAutoSave() // Auto-save after title change
     }
     
     fun onContentChange(newContent: String) {
         _content.value = newContent
+        triggerAutoSave() // Auto-save after content change
     }
     
     fun onCategoryChange(newCategory: Category) {
@@ -146,12 +164,16 @@ class NoteEditorViewModel @Inject constructor(
     
     fun togglePin() {
         _isPinned.value = !_isPinned.value
+        // Auto-save when pinning/unpinning
+        saveNote(navigateBack = false)
     }
     
 
     
     fun setReminder(date: Date?) {
         _reminderTime.value = date
+        // Auto-save when setting reminder
+        saveNote(navigateBack = false)
     }
     
     fun setAsTemporary(isTemp: Boolean) {
@@ -172,7 +194,14 @@ class NoteEditorViewModel @Inject constructor(
     }
     
     fun deleteNote() {
+        // Prevent re-entry or conflicts
+        if (isDeleted) return
+        
         currentNote?.let {
+            // Cancel any pending auto-save
+            autoSaveJob?.cancel()
+            isDeleted = true // Mark as deleted to prevent resurrection
+            
             viewModelScope.launch {
                 noteRepository.deleteNote(it)
                 _isNoteSaved.value = true // Trigger navigation back
@@ -180,14 +209,66 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
     
+    /**
+     * Trigger auto-save with 1-second debounce
+     */
+    private fun triggerAutoSave() {
+        // Cancel any pending auto-save
+        autoSaveJob?.cancel()
+        
+        // Schedule new auto-save with 1-second debounce
+        autoSaveJob = viewModelScope.launch {
+            delay(1000L) // 1 second debounce
+            saveNote(navigateBack = false) // Silent save, no navigation
+        }
+    }
+    
+    /**
+     * Force immediate save and flush any pending auto-save
+     */
+    /**
+     * Force immediate save and flush any pending auto-save
+     * Called when leaving the screen
+     */
+    fun flushAutoSave() {
+        autoSaveJob?.cancel()
+        
+        // If manually deleted, DO NOT FLUSH (prevents resurrection)
+        if (isDeleted) return
+        
+        // EXIT STRATEGY:
+        // 1. If EXISTING note is empty -> DELETE it (Cleanup)
+        // 2. Otherwise -> Save (or don't create new if empty)
+        if (currentNote != null && isNoteEmpty) {
+            deleteNote()
+        } else {
+            saveNote(navigateBack = false)
+        }
+    }
+    
     fun saveNote(navigateBack: Boolean = true) {
-        if (_title.value.isBlank() && _content.value.isBlank()) return
+        // Cancel pending auto-save to prevent duplicate
+        autoSaveJob?.cancel()
+        
+        // If manually deleted, DO NOT SAVE
+        if (isDeleted) return
+        
+        // Check if note is effectively empty
+        if (isNoteEmpty) {
+             // 1. NEW Note -> Do NOT create (return).
+             // 2. EXISTING Note -> Allow Save (Persist empty state while editing).
+             // It will be deleted on exit by flushAutoSave.
+             if (currentNote == null) {
+                 return
+             }
+        }
         
         viewModelScope.launch {
             val note = currentNote?.copy(
                 title = _title.value,
                 content = _content.value,
                 category = _category.value,
+                tags = _tags.value, // FIX: Add tags to update
                 color = _noteColor.value,
                 isPinned = _isPinned.value,
                 reminderTime = _reminderTime.value,
@@ -229,6 +310,12 @@ class NoteEditorViewModel @Inject constructor(
             
             
             noteRepository.saveNote(note)
+            
+            // CRITICAL FIX: Update currentNote after first save
+            // This prevents duplicate notes on subsequent auto-saves
+            if (currentNote == null) {
+                currentNote = note
+            }
             
             // Only trigger navigation if requested
             if (navigateBack) {
@@ -328,6 +415,8 @@ class NoteEditorViewModel @Inject constructor(
     
     override fun onCleared() {
         super.onCleared()
+        // Cancel auto-save on ViewModel cleanup
+        autoSaveJob?.cancel()
         try {
             voiceRecorder.release()
             speechManager.destroy()

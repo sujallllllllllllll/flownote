@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.stringResource
+import com.flownote.R
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
@@ -49,7 +51,7 @@ fun SearchScreen(
             onSearch = {}, // Result updates automatically
             active = true, // Always active
             onActiveChange = { if (!it) onNavigateBack() },
-            placeholder = { Text("Search title, content, or tags...") },
+            placeholder = { Text(stringResource(R.string.search_hint)) },
             leadingIcon = {
                 IconButton(onClick = onNavigateBack) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -98,10 +100,11 @@ fun SearchScreen(
                     }
                 } else {
                     items(searchResults) { note ->
-                        NoteCard(
-                            note = note,
-                            onClick = { onNoteClick(note.id) }
-                        )
+                            NoteCard(
+                                note = note,
+                                onClick = { onNoteClick(note.id) },
+                                searchQuery = searchQuery
+                            )
                     }
                 }
             }

@@ -1,7 +1,10 @@
 package com.flownote.ui.screens.addedit
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +12,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,15 +30,20 @@ import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.dimensionResource
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.flownote.R
 import com.flownote.data.model.Category
@@ -57,12 +66,12 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.ui.text.TextRange
 import com.flownote.data.model.NoteColor
 import com.flownote.util.SpeechToTextManager
 import java.util.Calendar
 import java.util.Date
-import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,6 +81,9 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 
 /**
  * Enhanced Screen for adding or editing a note
@@ -105,11 +117,19 @@ fun NoteEditorScreen(
     val speechState by viewModel.speechState.collectAsState()
     
     val context = LocalContext.current
+    val contentFocusRequester = remember { FocusRequester() }
     
     // Navigate back when saved
     LaunchedEffect(isNoteSaved) {
         if (isNoteSaved) {
             onNavigateBack()
+        }
+    }
+    
+    // Flush auto-save when leaving the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.flushAutoSave()
         }
     }
     
@@ -127,10 +147,50 @@ fun NoteEditorScreen(
     var replaceQuery by remember { mutableStateOf("") }
     var matchCount by remember { mutableStateOf(0) }
     var currentMatchIndex by remember { mutableStateOf(-1) }
-
+    var matches by remember { mutableStateOf<List<IntRange>>(emptyList()) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    
+    // Initialize RichTextState BEFORE using it
     val state = rememberRichTextState()
     val isLoading by viewModel.isLoading.collectAsState()
     var isInitialized by remember { mutableStateOf(false) }
+    
+    var lastQuery by remember { mutableStateOf("") }
+
+    // Update matches when find query or content text changes
+    LaunchedEffect(findQuery, state.annotatedString.text) {
+        val text = state.annotatedString.text
+        
+        // Calculate Matches
+        if (findQuery.isNotEmpty()) {
+            val foundMatches = mutableListOf<IntRange>()
+            var startIndex = 0
+            while (startIndex <= text.length) {
+                val index = text.indexOf(findQuery, startIndex, ignoreCase = true)
+                if (index >= 0) {
+                    foundMatches.add(index until (index + findQuery.length))
+                    startIndex = index + 1
+                } else {
+                    break
+                }
+            }
+            matches = foundMatches
+            matchCount = foundMatches.size
+            if (currentMatchIndex >= matchCount) currentMatchIndex = 0
+            if (currentMatchIndex < 0 && matchCount > 0) currentMatchIndex = 0
+            
+            // Jump to first match if query changed
+            if (findQuery != lastQuery && matches.isNotEmpty()) {
+                val range = matches[0]
+                state.selection = TextRange(range.first, range.last + 1)
+            }
+        } else {
+            matches = emptyList()
+            matchCount = 0
+            currentMatchIndex = -1
+        }
+        lastQuery = findQuery
+    }
 
     // Initialize RichTextState when note is loaded
     LaunchedEffect(isLoading) {
@@ -138,6 +198,17 @@ fun NoteEditorScreen(
              state.setHtml(content)
              isInitialized = true
         }
+    }
+    
+    // Observe rich text content changes and trigger auto-save
+    LaunchedEffect(state) {
+        snapshotFlow { state.annotatedString.text }
+            .collect {
+                if (isInitialized) {
+                    // Update ViewModel content
+                    viewModel.onContentChange(state.toHtml())
+                }
+            }
     }
     
 
@@ -166,6 +237,19 @@ fun NoteEditorScreen(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { /* TODO: Handle result */ }
     )
+    
+    // Microphone Permission Launcher for Voice-to-Text
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, start listening
+            viewModel.speechManager.startListening()
+        } else {
+            // Permission denied - could show a message to the user
+            // For now, do nothing
+        }
+    }
 
     // Reminder Dialogs State
     var showDatePicker by remember { mutableStateOf(false) }
@@ -300,6 +384,8 @@ fun NoteEditorScreen(
                                 }
                             )
                             
+                            // HIDDEN FOR MVP LAUNCH - Uncomment to enable Temporary Notes
+                            /*
                             // Temporary Note
                             DropdownMenuItem(
                                 text = { 
@@ -324,8 +410,9 @@ fun NoteEditorScreen(
                                     }
                                 }
                             )
+                            */
                             
-                            // Find
+                            // Find & Replace
                              DropdownMenuItem(
                                 text = { Text("Find & Replace") },
                                 leadingIcon = { Icon(Icons.Default.Search, null) },
@@ -352,7 +439,7 @@ fun NoteEditorScreen(
                                     leadingIcon = { Icon(Icons.Default.Delete, null) },
                                     onClick = {
                                         showMenu = false
-                                        viewModel.deleteNote()
+                                        showDeleteDialog = true
                                     }
                                 )
                             }
@@ -374,15 +461,16 @@ fun NoteEditorScreen(
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0) // Minimal top bar height
             )
         },
         bottomBar = {
             BottomAppBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                contentPadding = PaddingValues(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
-                modifier = Modifier.imePadding() // Important for keyboard
-            ) {
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentPadding = PaddingValues(0.dp), // Remove padding for tighter layout
+                    windowInsets = WindowInsets(0, 0, 0, 0) // Remove default insets
+                ) {
                  // Formatting Toolbar
                  RichTextEditorToolbar(
                     state = state,
@@ -390,16 +478,69 @@ fun NoteEditorScreen(
                     modifier = Modifier.weight(1f)
                  )
                  
-                 // Mic / Voice
+                 // Mic / Voice Dictation with Permission Request
                  val isListening = speechState is SpeechToTextManager.SpeechState.Listening
-                 IconButton(onClick = { 
-                      if (isListening) viewModel.speechManager.stopListening() else viewModel.speechManager.startListening() 
-                 }) {
-                     Icon(
-                         if (isListening) Icons.Default.MicOff else Icons.Default.Mic, 
-                         "Dictation",
-                         tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                     )
+                 val context = LocalContext.current
+                 
+                 // Check if permission is granted
+                 val hasMicPermission = remember {
+                     ContextCompat.checkSelfPermission(
+                         context,
+                         Manifest.permission.RECORD_AUDIO
+                     ) == PackageManager.PERMISSION_GRANTED
+                 }
+                 
+                 // Pulsing animation for active listening
+                 val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
+                 val alpha by infiniteTransition.animateFloat(
+                     initialValue = 0.3f,
+                     targetValue = 0.8f,
+                     animationSpec = infiniteRepeatable(
+                         animation = tween(1000, easing = FastOutSlowInEasing),
+                         repeatMode = RepeatMode.Reverse
+                     ),
+                     label = "alpha_animation"
+                 )
+                 
+                 Box(
+                     modifier = Modifier
+                         .size(48.dp)
+                         .background(
+                             color = if (isListening) {
+                                 MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+                             } else {
+                                 Color.Transparent
+                             },
+                             shape = CircleShape
+                         ),
+                     contentAlignment = Alignment.Center
+                 ) {
+                     IconButton(
+                         onClick = {
+                             if (isListening) {
+                                 // Stop listening
+                                 viewModel.speechManager.stopListening()
+                             } else {
+                                 // Check permission first
+                                 if (hasMicPermission) {
+                                     viewModel.speechManager.startListening()
+                                 } else {
+                                     // Request permission
+                                     micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                 }
+                             }
+                         }
+                     ) {
+                         Icon(
+                             if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
+                             "Voice Dictation",
+                             tint = if (isListening) {
+                                 MaterialTheme.colorScheme.onPrimary
+                             } else {
+                                 MaterialTheme.colorScheme.onSurface
+                             }
+                         )
+                     }
                  }
 
                  Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
@@ -458,7 +599,6 @@ fun NoteEditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = dimensionResource(id = R.dimen.spacing_large))
                 // Remove verticalScroll here if using RichTextEditor inside?
                 // RichTextEditor handles its own scrolling usually.
                 // But we have Title + Editor.
@@ -470,97 +610,130 @@ fun NoteEditorScreen(
             AnimatedVisibility(visible = showFindReplace) {
                 FindReplaceBar(
                     findQuery = findQuery,
-                    onFindQueryChange = { query -> findQuery = query }, // Simplified logic for brevity, assuming standard impl holds or copied
+                    onFindQueryChange = { findQuery = it },
                     replaceQuery = replaceQuery,
                     onReplaceQueryChange = { replaceQuery = it },
-                    onFindNext = { /* existing */ }, // I need to keep the full implementation logic?
-                    // Damn, I'm replacing the whole block. I need to KEEP the logic.
-                    // The "FindReplaceBar" call in original was huge with logic.
-                    // I should probably Extract the logic or copy it.
-                    // Implementation Plan Modification: Copy the Find/Replace logic back in.
-                    // It was complex.
-                    // For the sake of this Refactor, I will instantiate FindReplaceBar but pass empty/dummy for now?
-                    // NO, I must fix it.
-                    // OK, I'll assume the previous logic for Find/Replace stays if I didn't delete the `showFindReplace` state variables.
-                    // I will Copy-Paste the FindReplaceBar block from the ViewFile source.
-                    onFindPrevious = {},
-                    onReplace = {},
-                    onReplaceAll = {},
-                    onClose = { showFindReplace = false },
+                    onFindNext = {
+                        if (matches.isNotEmpty()) {
+                            currentMatchIndex = (currentMatchIndex + 1) % matches.size
+                            // Jump to match
+                            val range = matches[currentMatchIndex]
+                            state.selection = TextRange(range.first, range.last + 1)
+                        }
+                    },
+                    onFindPrevious = {
+                        if (matches.isNotEmpty()) {
+                            currentMatchIndex = if (currentMatchIndex > 0) currentMatchIndex - 1 else matches.size - 1
+                            // Jump to match
+                            val range = matches[currentMatchIndex]
+                            state.selection = TextRange(range.first, range.last + 1)
+                        }
+                    },
+                    onReplace = {
+                        if (matches.isNotEmpty() && currentMatchIndex >= 0 && findQuery.isNotEmpty()) {
+                            // Get current HTML content
+                            val currentHtml = state.toHtml()
+                            // Replace first occurrence in HTML
+                            val newHtml = currentHtml.replaceFirst(findQuery, replaceQuery, ignoreCase = true)
+                            state.setHtml(newHtml)
+                            // Update viewModel content
+                            viewModel.onContentChange(newHtml)
+                            // Reset search to update matches
+                            val tempQuery = findQuery
+                            findQuery = ""
+                            findQuery = tempQuery
+                        }
+                    },
+                    onReplaceAll = {
+                        if (findQuery.isNotEmpty()) {
+                            // Get current HTML content
+                            val currentHtml = state.toHtml()
+                            // Replace all occurrences in HTML
+                            val newHtml = currentHtml.replace(findQuery, replaceQuery, ignoreCase = true)
+                            state.setHtml(newHtml)
+                            // Update viewModel content
+                            viewModel.onContentChange(newHtml)
+                            // Reset search
+                            findQuery = ""
+                        }
+                    },
+                    onClose = { 
+                        showFindReplace = false
+                        findQuery = ""
+                        replaceQuery = ""
+                    },
                     matchCount = matchCount,
-                    currentMatchIndex = currentMatchIndex,
+                    currentMatchIndex = if (currentMatchIndex >= 0) currentMatchIndex + 1 else 0,
                     contentColor = contentColor
                 )
             }
 
-            // Title Input
-            TextField(
-                value = title,
-                onValueChange = { viewModel.onTitleChange(it) },
-                placeholder = {
-                    Text(
-                        text = "Title",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = contentColor.copy(alpha = 0.5f)
-                    )
-                },
-                textStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = contentColor),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = contentColor
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Audio Recording / Player Section (Restored)
-            if (hasAudio || isRecordingAudio) {
-                Card(
-                     colors = CardDefaults.cardColors(containerColor = contentColor.copy(alpha = 0.05f)),
-                     modifier = Modifier.fillMaxWidth().padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.padding(dimensionResource(id = R.dimen.spacing_small)).fillMaxWidth()
-                    ) {
-                         if (isRecordingAudio) {
-                             Text(
-                                 text = "Recording... (Tap to stop)",
-                                 color = MaterialTheme.colorScheme.error,
-                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                             )
-                             IconButton(onClick = { viewModel.toggleAudioRecording() }) {
-                                 Icon(Icons.Default.Stop, "Stop Recording", tint = MaterialTheme.colorScheme.error)
-                             }
-                         } else {
-                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                 Icon(Icons.Default.GraphicEq, null, tint = contentColor)
-                                 Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
-                                 Text("Voice Note", color = contentColor)
-                             }
-                             Row {
-                                 IconButton(onClick = { viewModel.toggleAudioPlayback() }) {
-                                     Icon(
-                                         imageVector = if (isPlayingAudio) Icons.Default.Stop else Icons.Default.PlayArrow,
-                                         contentDescription = "Play/Stop",
-                                         tint = contentColor
-                                     )
-                                 }
-                                 IconButton(onClick = { viewModel.deleteAudio() }) {
-                                     Icon(Icons.Default.Delete, "Delete Audio", tint = contentColor)
-                                 }
-                             }
-                         }
+            // Delete Confirmation Dialog
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Delete Note?") },
+                    text = { Text("This note will be permanently deleted. Did you want to delete this note?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showDeleteDialog = false
+                                viewModel.deleteNote()
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Text("Delete")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text("Cancel")
+                        }
                     }
-                }
+                )
             }
 
-            // Content Input (Rich Text)
-            // Weight 1f to fill remaining screen
-            RichTextEditor(
+            // Unified Title + Content Area (Google Keep style)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {
+                        contentFocusRequester.requestFocus()
+                    }
+                    .padding(horizontal = 8.dp) // Minimal padding for wider content area
+            ) {
+                // Title Input (seamlessly integrated)
+                BasicTextField(
+                    value = title,
+                    onValueChange = { viewModel.onTitleChange(it) },
+                    textStyle = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor
+                    ),
+                    decorationBox = { innerTextField ->
+                        if (title.isEmpty()) {
+                            Text(
+                                text = "Title",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = contentColor.copy(alpha = 0.4f)
+                            )
+                        }
+                        innerTextField()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp), // Minimal spacing
+                    cursorBrush = SolidColor(contentColor)
+                )
+
+                // Content Input (Rich Text) - flows naturally after title
+                RichTextEditor(
                     state = state,
                     placeholder = {
                          Text(
@@ -577,9 +750,22 @@ fun NoteEditorScreen(
                         cursorColor = contentColor
                     ),
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f) // Takes remaining space
+                        .fillMaxSize()
+                        .focusRequester(contentFocusRequester)
                 )
+                
+                // Highlight Overlay
+                // Highlight Overlay removed as per user request
+                // Native selection is used instead
+            }
+                
+            // Tags Input
+            TagInputField(
+                tags = tags,
+                onAddTag = { tag -> viewModel.addTag(tag) },
+                onRemoveTag = { tag -> viewModel.removeTag(tag) },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -779,7 +965,80 @@ fun BottomOptionsBar(
     }
 }
 
+
 // Helper to determine brightness
 fun calculateLuminance(color: Color): Double {
     return (0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue)
+}
+
+/**
+ * Overlay composable that draws highlight rectangles over matched text
+ */
+@Composable
+fun SearchHighlightOverlay(
+    text: String,
+    matches: List<IntRange>,
+    currentMatchIndex: Int,
+    highlightColor: Color,
+    textStyle: androidx.compose.ui.text.TextStyle,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    
+    Canvas(modifier = modifier.fillMaxSize()) {
+        if (matches.isEmpty()) return@Canvas
+        
+        // Measure the text to get character positions
+        val measuredText = textMeasurer.measure(
+            text = text,
+            style = textStyle,
+            constraints = androidx.compose.ui.unit.Constraints(
+                maxWidth = size.width.toInt()
+            )
+        )
+        
+        // Draw highlights for each match. We compute per-character bounding boxes
+        // and merge them per line to correctly handle multi-line matches.
+        matches.forEachIndexed { index, range ->
+            try {
+                val start = range.first.coerceIn(0, text.length)
+                val endExclusive = (range.last + 1).coerceIn(0, text.length)
+                if (start >= endExclusive) return@forEachIndexed
+
+                // Collect bounding boxes for each character in the match
+                val charBoxes = mutableListOf<androidx.compose.ui.geometry.Rect>()
+                for (i in start until endExclusive) {
+                    try {
+                        val box = measuredText.getBoundingBox(i)
+                        charBoxes.add(box)
+                    } catch (_: Exception) {
+                        // Skip chars that can't be measured
+                    }
+                }
+
+                if (charBoxes.isEmpty()) return@forEachIndexed
+
+                // Group boxes by line (use top as key with some tolerance)
+                val groups = charBoxes.groupBy { (it.top / 2).toInt() }
+
+                val color = if (index == currentMatchIndex) highlightColor.copy(alpha = 0.6f) else highlightColor.copy(alpha = 0.3f)
+
+                groups.values.forEach { boxesOnLine ->
+                    val left = boxesOnLine.minOf { it.left }
+                    val right = boxesOnLine.maxOf { it.right }
+                    val top = boxesOnLine.minOf { it.top }
+                    val bottom = boxesOnLine.maxOf { it.bottom }
+
+                    drawRect(
+                        color = color,
+                        topLeft = androidx.compose.ui.geometry.Offset(left, top),
+                        size = androidx.compose.ui.geometry.Size(right - left, bottom - top)
+                    )
+                }
+            } catch (e: Exception) {
+                // Ignore measurement errors
+            }
+        }
+    }
 }

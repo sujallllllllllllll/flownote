@@ -24,6 +24,14 @@ import androidx.activity.enableEdgeToEdge
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Allow rotation on tablets (sw600dp+), lock to portrait on phones
+        val isTablet = resources.getBoolean(R.bool.is_tablet)
+        if (isTablet) {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        }
+        // Portrait lock is already set in AndroidManifest for phones
+        
         enableEdgeToEdge()
         setContent {
             val settingsViewModel: com.flownote.ui.screens.settings.SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
@@ -44,7 +52,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen()
+                    // Extract noteId from intent (for notification deep links)
+                    val noteId = intent?.getStringExtra("note_id")
+                    MainScreen(initialNoteId = noteId)
                 }
             }
         }

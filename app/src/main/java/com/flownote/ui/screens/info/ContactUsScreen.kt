@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -49,11 +51,12 @@ fun ContactUsScreen(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState()) // Add scroll for large fonts
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(32.dp)
+            verticalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.spacing_large)) // 24dp - tighter layout
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+
 
             // 2. Hero / Intro Section
             Column(
@@ -124,7 +127,7 @@ fun ContactUsScreen(
                 onClick = {
                     val intent = Intent(Intent.ACTION_SENDTO).apply {
                         data = Uri.parse("mailto:") // Only email apps
-                        putExtra(Intent.EXTRA_EMAIL, arrayOf("support@flownotes.app")) // Placeholder email
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("presencematic@gmail.com")) // Placeholder email
                         putExtra(Intent.EXTRA_SUBJECT, "FlowNotes Feedback")
                     }
                     // Safe launch
@@ -137,7 +140,7 @@ fun ContactUsScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(dimensionResource(id = R.dimen.button_height_filled)), // 48dp - standard height
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -161,7 +164,7 @@ fun ContactUsScreen(
                 text = "Usually replies within 24–48 hours",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.padding(bottom = 24.dp)
+                modifier = Modifier.padding(bottom = dimensionResource(id = R.dimen.spacing_medium)) // 16dp
             )
         }
     }

@@ -5,20 +5,27 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.dimensionResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.flownote.R
 import com.flownote.data.repository.ThemeMode
 import java.text.SimpleDateFormat
+import java.util.*
 import java.util.Date
 import java.util.Locale
 
@@ -26,9 +33,10 @@ import java.util.Locale
 
 @Composable
 fun SettingsScreen(
-    onPrivacyClick: () -> Unit,
-    onContactClick: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    onNavigateToContactUs: () -> Unit = {},
+    onNavigateToPrivacyPolicy: () -> Unit = {},
+    onNavigateToUpcomingFeatures: () -> Unit = {}
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
     val useDynamicColors by viewModel.useDynamicColors.collectAsState()
@@ -73,7 +81,11 @@ fun SettingsScreen(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = dimensionResource(id = R.dimen.spacing_medium)) // 16dp bottom breathing space
         ) {
+            // HIDDEN FOR MVP LAUNCH - Uncomment to enable Backup & Restore
+            /*
             // Backup & Restore Section
             Text(
                 text = "Backup & Restore",
@@ -111,6 +123,54 @@ fun SettingsScreen(
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_small)))
+            */
+
+            // About Section
+            Text(
+                text = "About",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(
+                    start = dimensionResource(id = R.dimen.screen_margin_horizontal),
+                    top = dimensionResource(id = R.dimen.spacing_medium),
+                    bottom = dimensionResource(id = R.dimen.spacing_xsmall)
+                )
+            )
+
+            ListItem(
+                headlineContent = { Text("Contact Us") },
+                supportingContent = { Text("Get in touch with feedback or questions") },
+                leadingContent = {
+                    Icon(Icons.Default.Email, contentDescription = null)
+                },
+                modifier = Modifier.clickable {
+                    onNavigateToContactUs()
+                }
+            )
+
+            ListItem(
+                headlineContent = { Text("Privacy Policy") },
+                supportingContent = { Text("Learn how we protect your data") },
+                leadingContent = {
+                    Icon(Icons.Default.Lock, contentDescription = null)
+                },
+                modifier = Modifier.clickable {
+                    onNavigateToPrivacyPolicy()
+                }
+            )
+
+            ListItem(
+                headlineContent = { Text("Upcoming Features") },
+                supportingContent = { Text("Preview what's being explored") },
+                leadingContent = {
+                    Icon(Icons.Default.Lightbulb, contentDescription = null)
+                },
+                modifier = Modifier.clickable {
+                    onNavigateToUpcomingFeatures()
+                }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))) // 8dp - tighter
 
             // Appearance Section
             Text(
@@ -153,29 +213,7 @@ fun SettingsScreen(
                 )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_small)))
-
-            // About Section
-            Text(
-                text = "About",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(
-                    start = dimensionResource(id = R.dimen.screen_margin_horizontal), 
-                    top = dimensionResource(id = R.dimen.spacing_medium), 
-                    bottom = dimensionResource(id = R.dimen.spacing_xsmall)
-                )
-            )
-
-            ListItem(
-                headlineContent = { Text("Privacy Policy") },
-                modifier = Modifier.clickable { onPrivacyClick() }
-            )
-
-            ListItem(
-                headlineContent = { Text("Contact Us") },
-                modifier = Modifier.clickable { onContactClick() }
-            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))) // 8dp - tighter
         }
 
         // Theme Dialog

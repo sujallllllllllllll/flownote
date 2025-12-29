@@ -145,3 +145,6 @@ build.bat
 build_error.log
 build_error2.txt
 
+
+# Keystore properties
+keystore.properties

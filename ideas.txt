@@ -1,0 +1,13 @@
+Category based tags separation
+Like if user select the 
+Genearal category then it will show the tags in home screen only of general category notes not of other categories like reciepe code snippets and same for other 
+for code snippets category it will show the tags in home screen only of code snippets category notes not of other categories like reciepe general etc etc
+like which ever category is selected in homescreen only that category tags will shown
+
+explantion- look i think you get confused or didnt understand what i want to say partially u understand but not totally
+
+Ex -
+1. User create note in code snippiet category and added tags by themself like python, data science, coding
+2. user create note in recepie categoryand added tags by themself recepie name, sweets, etc etc
+so in home screen at top you know we have category selcetor in which we can select the category to directly jump on that catgeory only notes like if we click on meeting then only notes with meeting category will show same for rest 
+and same for tags which ever tag users will tag to the note that tag only show in that category in main screen where all notes are there all tags are also there maybe recent tags or tags by alphabet that dosent matters but in each category only their tag will be available not other catgeory tags will be present is that clear?

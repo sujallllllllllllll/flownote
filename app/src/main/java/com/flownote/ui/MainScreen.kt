@@ -1,11 +1,8 @@
 package com.flownote.ui
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,21 +10,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.dimensionResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -40,12 +32,18 @@ import com.flownote.ui.navigation.Screen
 import kotlinx.coroutines.launch
 
 @Composable
-fun MainScreen(
-    viewModel: MainViewModel = hiltViewModel()
-) {
+fun MainScreen(initialNoteId: String? = null) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    // Handle deep link from notification
+    LaunchedEffect(initialNoteId) {
+        if (initialNoteId != null) {
+            // Navigate to the specific note
+            navController.navigate(Screen.NoteEditor.createRoute(initialNoteId))
+        }
+    }
 
     // Logic to show/hide bottom bar
     val isBottomBarVisible = currentDestination?.route in listOf(
@@ -53,20 +51,22 @@ fun MainScreen(
         Screen.Settings.route
     )
 
+    // HIDDEN FOR MVP - Uncomment to enable expandable FAB menu with templates
+    // var isFabExpanded by remember { mutableStateOf(false) }
+    
     // FAB Menu State
-    var isFabExpanded by remember { mutableStateOf(false) }
     var showTemplateDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // FAB Rotation Animation
-    val rotation by animateFloatAsState(
-        targetValue = if (isFabExpanded) 45f else 0f,
-        label = "fab_rotation",
-        animationSpec = androidx.compose.animation.core.tween(durationMillis = 200)
-    )
+    // HIDDEN FOR MVP - FAB rotation animation
+    // val rotation by animateFloatAsState(
+    //     targetValue = if (isFabExpanded) 45f else 0f,
+    //     animationSpec = tween(200), label = ""
+    // )
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
+            modifier = Modifier.imePadding(), // Push bottom bar above keyboard
             bottomBar = {
                 AnimatedVisibility(
                     visible = isBottomBarVisible,
@@ -74,17 +74,24 @@ fun MainScreen(
                     exit = slideOutVertically { it }
                 ) {
                     Box(
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(96.dp) // Taller to accommodate elevated FAB and taller nav bar
                     ) {
+                        // Background Navigation Bar
                         NavigationBar(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            tonalElevation = dimensionResource(id = R.dimen.elevation_level_2)
+                            tonalElevation = dimensionResource(id = R.dimen.elevation_level_2),
+                            windowInsets = WindowInsets(0, 0, 0, 0),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(dimensionResource(id = R.dimen.bottom_nav_height))
+                                .align(Alignment.BottomCenter)
                         ) {
-                            // Home
+                            // Home/Notes - takes up left side
                             NavigationBarItem(
                                 selected = currentDestination?.hierarchy?.any { it.route == Screen.Home.route } == true,
                                 onClick = {
-                                    if (isFabExpanded) isFabExpanded = false // Close FAB if open
                                     navController.navigate(Screen.Home.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
                                             saveState = true
@@ -94,22 +101,17 @@ fun MainScreen(
                                     }
                                 },
                                 icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                                label = { Text("Notes") }
+                                label = { Text("Notes") },
+                                modifier = Modifier.weight(1f) // Take up half of available space
                             )
 
-                            // Placeholder for FAB
-                            NavigationBarItem(
-                                selected = false,
-                                onClick = { },
-                                icon = { },
-                                enabled = false
-                            )
+                            // Empty space for FAB - fixed width to prevent pushing items too far
+                            Spacer(modifier = Modifier.width(80.dp))
 
-                            // Settings
+                            // Settings - takes up right side
                             NavigationBarItem(
                                 selected = currentDestination?.hierarchy?.any { it.route == Screen.Settings.route } == true,
                                 onClick = {
-                                    if (isFabExpanded) isFabExpanded = false // Close FAB if open
                                     navController.navigate(Screen.Settings.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
                                             saveState = true
@@ -119,39 +121,48 @@ fun MainScreen(
                                     }
                                 },
                                 icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                                label = { Text("Settings") }
+                                label = { Text("Settings") },
+                                modifier = Modifier.weight(1f) // Take up half of available space
                             )
                         }
-
-                        // Floating Action Button
+                        
+                        // Elevated FAB - positioned above the nav bar
                         FloatingActionButton(
-                            onClick = { isFabExpanded = !isFabExpanded },
+                            onClick = {
+                                navController.navigate(Screen.NoteEditor.createRoute("new"))
+                            },
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                             shape = CircleShape,
                             elevation = FloatingActionButtonDefaults.elevation(
-                                defaultElevation = 6.dp, // Slightly higher to pop
-                                pressedElevation = 6.dp
+                                defaultElevation = 8.dp,
+                                pressedElevation = 12.dp,
+                                hoveredElevation = 10.dp
                             ),
                             modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .offset(y = 8.dp) // Slight offset from top for better visual balance
+                                .size(64.dp) // Larger, more prominent FAB
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "Create",
-                                modifier = Modifier.rotate(rotation)
+                                contentDescription = "Create Note",
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                 }
             }
-        ) { innerPadding ->
+        ) { paddingValues ->
             NavGraph(
                 navController = navController,
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier.padding(paddingValues)
             )
         }
 
-        // Overlay for FAB Menu
+        // HIDDEN FOR MVP - FAB Expandable Menu Overlay
+        // Uncomment this entire block to enable template selection
+        /*
         if (isFabExpanded) {
             // Dimmed Background
             Box(
@@ -161,43 +172,45 @@ fun MainScreen(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) { isFabExpanded = false } // Close on outside tap
+                    ) { isFabExpanded = false }
             )
 
             // FAB Menu Items
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 130.dp), // Increased spacing from bottom
+                    .padding(bottom = 130.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp) // Increased separation
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Template Note (Secondary)
-                FabMenuItem(
-                    text = "Template Note",
-                    icon = Icons.Default.Description,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ) {
-                    isFabExpanded = false
-                    showTemplateDialog = true
-                }
+                // Template Note
+                FABMenuItem(
+                    icon = Icons.AutoMirrored.Filled.Label,
+                    label = "From Template",
+                    onClick = {
+                        isFabExpanded = false
+                        showTemplateDialog = true
+                    }
+                )
+                
+                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_small)))
 
-                // Blank Note (Primary)
-                FabMenuItem(
-                    text = "Blank Note",
+                // Blank Note
+                FABMenuItem(
                     icon = Icons.Default.Edit,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    isPrimary = true
-                ) {
-                    isFabExpanded = false
-                    navController.navigate(Screen.NoteEditor.createRoute())
-                }
+                    label = "Blank Note",
+                    onClick = {
+                        isFabExpanded = false
+                        navController.navigate(Screen.NoteEditor.createRoute("new"))
+                    }
+                )
             }
         }
+        */
         
-        // Template Dialog
+        // HIDDEN FOR MVP - Template Selection Dialog
+        // Uncomment to enable template feature
+        /*
         if (showTemplateDialog) {
             com.flownote.ui.components.TemplateSelectionDialog(
                 templates = com.flownote.data.repository.TemplateRepository.getDefaultTemplates(),
@@ -211,42 +224,35 @@ fun MainScreen(
                 }
             )
         }
+        */
     }
 }
 
+// HIDDEN FOR MVP - FAB Menu Item Component
+// Uncomment to enable template feature
+/*
 @Composable
-
-fun FabMenuItem(
-    text: String,
+fun FABMenuItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    containerColor: Color,
-    contentColor: Color,
-    isPrimary: Boolean = false,
+    label: String,
     onClick: () -> Unit
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End,
-        modifier = Modifier.clickable { onClick() }
+    Column(
+        horizontal Alignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge.copy(
-                fontWeight = if (isPrimary) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
-            ),
-            color = Color.White, // Always white on dim background for contrast
-            modifier = Modifier
-                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
         SmallFloatingActionButton(
             onClick = onClick,
-            containerColor = containerColor,
-            contentColor = contentColor,
-            shape = CircleShape
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) {
             Icon(imageVector = icon, contentDescription = null)
         }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
+*/

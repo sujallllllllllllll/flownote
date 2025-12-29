@@ -58,13 +58,22 @@ fun FindReplaceBar(
                 ),
                 singleLine = true,
                 trailingIcon = {
-                    if (matchCount > 0) {
-                        Text(
-                            text = "${currentMatchIndex + 1}/$matchCount",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = contentColor.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
+                    if (findQuery.isNotEmpty()) {
+                        if (matchCount > 0) {
+                            Text(
+                                text = "$currentMatchIndex/$matchCount",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = contentColor.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "No results",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
                     }
                 }
             )
