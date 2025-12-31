@@ -1,76 +1,40 @@
 package com.flownote.ui.screens.home
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.toUpperCase
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.flownote.R
 import com.flownote.data.model.Category
 import com.flownote.data.model.Note
-import com.flownote.ui.screens.addedit.calculateLuminance
-import com.flownote.util.getAdaptiveColor
+import java.text.SimpleDateFormat
+import java.util.*
 
-/**
- * Enhanced Home screen with Staggered Grid and Search
- */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = hiltViewModel(),
     onNoteClick: (String) -> Unit,
-    onNewNoteClick: () -> Unit,
-    onSearchClick: () -> Unit,
-    modifier: Modifier = Modifier
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -78,560 +42,573 @@ fun HomeScreen(
     val selectedTags by viewModel.selectedTags.collectAsState()
     val availableTags by viewModel.availableTags.collectAsState()
     
-    // Use notes from UI state
+    val allNotes = uiState.allNotes
     val pinnedNotes = uiState.pinnedNotes
     val otherNotes = uiState.otherNotes
-    val allNotes = uiState.allNotes
-
-    var isSearchActive by remember { mutableStateOf(false) }
 
     Scaffold(
-        modifier = modifier,
-        topBar = {
-            Column(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surface)
-                    .statusBarsPadding()
-            ) {
-                // 1. TopAppBar
-                CenterAlignedTopAppBar(
-                    title = {
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(bottom = 80.dp)
+        ) {
+            // Header with FlowNotes title
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .height(24.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primary,
+                                RoundedCornerShape(2.dp)
+                            )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "FlowNotes",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+            }
+
+            // Search bar
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.onSearchQueryChange(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    placeholder = {
                         Text(
-                            text = "FlowNotes",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.primary
+                            "Search notes...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     },
-                    // Navigation Icon removed
-                    actions = {
-                        IconButton(
-                            onClick = { isSearchActive = !isSearchActive }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                modifier = Modifier.size(24.dp)
-                            )
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                     ),
-                    windowInsets = WindowInsets(0, 0, 0, 0)
+                    singleLine = true
                 )
+            }
 
-                // Subtle divider
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
-
-                // 2. Collapsible Search Bar
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isSearchActive || searchQuery.isNotEmpty(),
+            // Category filter chips
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    DockedSearchBar(
-                        inputField = {
-                            SearchBarDefaults.InputField(
-                                query = searchQuery,
-                                onQueryChange = viewModel::onSearchQueryChange,
-                                onSearch = { isSearchActive = false },
-                                expanded = false,
-                                onExpandedChange = { },
-                                placeholder = { Text(stringResource(R.string.search_hint)) },
-                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                                trailingIcon = {
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(onClick = viewModel::clearFilters) {
-                                            Icon(Icons.Default.Close, contentDescription = "Clear")
-                                        }
-                                    }
-                                },
-                            )
-                        },
-                        expanded = false,
-                        onExpandedChange = { },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal))
-                    ) {}
+                    // All chip
+                    item {
+                        FilterChip(
+                            selected = selectedCategory == null,
+                            onClick = { viewModel.onCategorySelected(null) },
+                            label = {
+                                Text(
+                                    "All",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (selectedCategory == null) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Home,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            border = null
+                        )
+                    }
+                    
+                    // Category chips
+                    items(Category.values().toList()) { category ->
+                        FilterChip(
+                            selected = selectedCategory == category,
+                            onClick = { viewModel.onCategorySelected(category) },
+                            label = {
+                                Text(
+                                    category.displayName,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (selectedCategory == category) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    getCategoryIcon(category),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            border = null
+                        )
+                    }
                 }
+            }
 
-                // 3. Category Filter Chips (LazyRow)
-                androidx.compose.foundation.lazy.LazyRow(
-                    contentPadding = PaddingValues(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
-                    horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.chip_spacing)),
-                    modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))
-                ) {
-                        // "All" Chip
-                        item {
-                            val isSelected = selectedCategory == null
+            // Tag filter chips
+            if (availableTags.isNotEmpty()) {
+                item {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(availableTags) { tag ->
                             FilterChip(
-                                selected = isSelected,
-                                onClick = { 
-                                   // Enforce at least one selected (All)
-                                   viewModel.onCategorySelected(null) 
-                                },
-                                label = { Text("All") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Home,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(dimensionResource(id = R.dimen.chip_icon_size))
+                                selected = selectedTags.contains(tag),
+                                onClick = { viewModel.toggleTagFilter(tag) },
+                                label = {
+                                    Text(
+                                        tag,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = if (selectedTags.contains(tag)) FontWeight.SemiBold else FontWeight.Normal
+                                        )
                                     )
                                 },
+                                shape = RoundedCornerShape(24.dp),
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    containerColor = Color.Transparent,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
-                                border = if (isSelected) null else FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = false,
-                                    borderColor = MaterialTheme.colorScheme.outline
-                                ),
-                                shape = RoundedCornerShape(dimensionResource(id = R.dimen.corner_radius_small)),
-                                elevation = FilterChipDefaults.filterChipElevation(
-                                    elevation = if (isSelected) dimensionResource(id = R.dimen.elevation_level_2) else 0.dp,
-                                    pressedElevation = dimensionResource(id = R.dimen.elevation_level_2)
-                                ),
-                                modifier = Modifier.height(dimensionResource(id = R.dimen.chip_height))
-                            )
-                        }
-
-                        // Category Chips
-                        items(Category.values().size) { index ->
-                            val category = Category.values()[index]
-                            val isSelected = selectedCategory == category
-                            
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { 
-                                    // Single selection, switching category
-                                    viewModel.onCategorySelected(category)
-                                },
-                                label = { Text(category.displayName) },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = getCategoryIcon(category),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    containerColor = Color.Transparent,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                ),
-                                border = if (isSelected) null else FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = false,
-                                    borderColor = MaterialTheme.colorScheme.outline
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                elevation = FilterChipDefaults.filterChipElevation(
-                                    elevation = if (isSelected) 2.dp else 0.dp,
-                                    pressedElevation = 2.dp
-                                ),
-                                modifier = Modifier.height(32.dp)
+                                border = null
                             )
                         }
                     }
-                    
-                    if (availableTags.isNotEmpty()) {
-                        androidx.compose.foundation.lazy.LazyRow(
-                            contentPadding = PaddingValues(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
-                            horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.chip_spacing)),
-                            modifier = Modifier.padding(bottom = dimensionResource(id = R.dimen.spacing_xsmall))
+                }
+            }
+
+            // Pinned section
+            if (pinnedNotes.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Pinned",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
+
+                // Pinned cards (horizontal scroll)
+                item {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(pinnedNotes.take(3)) { note ->
+                            PinnedNoteCard(note, onNoteClick)
+                        }
+                    }
+                }
+            }
+
+            // Today section
+            item {
+                Text(
+                    text = "Today",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
+
+            // Note list
+            items(otherNotes) { note ->
+                NoteListItem(note, onNoteClick)
+            }
+
+            // Empty state
+            if (allNotes.isEmpty()) {
+                item {
+                    EmptyStateSimple()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PinnedNoteCard(note: Note, onNoteClick: (String) -> Unit) {
+    val gradient = when (note.category) {
+        Category.GENERAL -> Brush.linearGradient(
+            colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+        )
+        Category.MEETINGS -> Brush.linearGradient(
+            colors = listOf(Color(0xFF4A90E2), Color(0xFF357ABD))
+        )
+        Category.TASKS -> Brush.linearGradient(
+            colors = listOf(Color(0xFF11998E), Color(0xFF38EF7D))
+        )
+        Category.RECIPES -> Brush.linearGradient(
+            colors = listOf(Color(0xFFFF9A8B), Color(0xFFFF6A88))
+        )
+        Category.CODE -> Brush.linearGradient(
+            colors = listOf(Color(0xFF8E2DE2), Color(0xFF4A00E0))
+        )
+        Category.IDEAS -> Brush.linearGradient(
+            colors = listOf(Color(0xFFFBD786), Color(0xFFF7797D))
+        )
+        Category.STUDY -> Brush.linearGradient(
+            colors = listOf(Color(0xFF6A11CB), Color(0xFF2575FC))
+        )
+    }
+
+    Card(
+        modifier = Modifier
+            .width(140.dp)
+            .height(120.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 3.dp,
+            pressedElevation = 5.dp
+        ),
+        onClick = { onNoteClick(note.id) }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(gradient)
+                .padding(14.dp)
+        ) {
+            // Pin icon with subtle background
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.PushPin,
+                    contentDescription = "Pinned",
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+
+            // Content
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+            ) {
+                Text(
+                    text = note.title.ifBlank { "Untitled" },
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    ),
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = note.getPlainTextContent(),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    ),
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun NoteListItem(note: Note, onNoteClick: (String) -> Unit) {
+    val categoryColor = getCategoryColor(note.category)
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        ),
+        onClick = { onNoteClick(note.id) }
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Subtle gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                categoryColor.copy(alpha = 0.08f),
+                                Color.Transparent
+                            ),
+                            startX = 0f,
+                            endX = 400f
+                        )
+                    )
+            )
+            
+            Row(modifier = Modifier.fillMaxWidth()) {
+                // Colored left border
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(110.dp)
+                        .background(categoryColor)
+                )
+                
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(14.dp)
+                ) {
+                    // Title
+                    Text(
+                        text = note.title.ifBlank { "Untitled" },
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Preview text
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = note.getPlainTextContent(),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Tags
+                    if (note.tags.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            items(availableTags.size) { index ->
-                                val tag = availableTags[index]
-                                FilterChip(
-                                    selected = selectedTags.contains(tag),
-                                    onClick = { viewModel.toggleTagFilter(tag) },
-                                    label = { Text("#$tag") },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            note.tags.take(2).forEach { tag ->
+                                Surface(
+                                    color = categoryColor.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text(
+                                        text = tag,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        color = categoryColor,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
+                                }
+                            }
+                            if (note.tags.size > 2) {
+                                Text(
+                                    text = "+${note.tags.size - 2}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
                             }
                         }
                     }
                 }
-            },
-
-    ) { paddingValues ->
-        if (allNotes.isEmpty() && searchQuery.isEmpty() && selectedCategory == null) {
-            EmptyState(paddingValues)
-        } else if (allNotes.isEmpty() && (searchQuery.isNotEmpty() || selectedCategory != null || selectedTags.isNotEmpty())) {
-            // No results found for search/filter
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
+                
+                // Category icon and timestamp column
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier.padding(10.dp),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
+                    // Category icon in top right
+                    Box(
                         modifier = Modifier
-                            .size(64.dp)
-                            .padding(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "No notes found",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Try adjusting your search or filters",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        } else {
-            LazyVerticalStaggeredGrid(
-                columns = StaggeredGridCells.Fixed(2),
-                contentPadding = PaddingValues(
-                    start = dimensionResource(id = R.dimen.screen_margin_horizontal), 
-                    end = dimensionResource(id = R.dimen.screen_margin_horizontal), 
-                    top = dimensionResource(id = R.dimen.spacing_xsmall), // 8dp - reduced from 16dp
-                    bottom = dimensionResource(id = R.dimen.spacing_medium) // 16dp - comfortable scroll space
-                ),
-                horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.spacing_small)),
-                verticalItemSpacing = dimensionResource(id = R.dimen.spacing_small),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = paddingValues.calculateTopPadding()) // Push down below header
-            ) {
-                // Pinned Section
-                if (pinnedNotes.isNotEmpty()) {
-                    item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
-                        Text(
-                            text = "Pinned",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(categoryColor.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = getCategoryIcon(note.category),
+                            contentDescription = note.category.displayName,
+                            tint = categoryColor.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    items(items = pinnedNotes, key = { it.id }) { note ->
-                        NoteCard(note = note, onClick = { onNoteClick(note.id) }, searchQuery = searchQuery)
-                    }
-                }
-                
-                // Others Section (Title only if we have pinned notes)
-                if (pinnedNotes.isNotEmpty() && otherNotes.isNotEmpty()) {
-                    item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
-                        Text(
-                            text = "Others",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))
-                        )
-                    }
-                }
-                
-                items(items = otherNotes, key = { it.id }) { note ->
-                    Box(modifier = Modifier.animateItem()) {
-                        NoteCard(note = note, onClick = { onNoteClick(note.id) }, searchQuery = searchQuery)
-                    }
+                    
+                    Spacer(modifier = Modifier.height(40.dp))
+                    
+                    // Timestamp in bottom right
+                    Text(
+                        text = getRelativeTime(note.updatedAt),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
                 }
             }
         }
     }
-
 }
 
 @Composable
-fun EmptyState(paddingValues: PaddingValues) {
+fun EmptyStateSimple() {
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues),
+            .fillMaxWidth()
+            .height(300.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = null,
+            Box(
                 modifier = Modifier
-                    .size(64.dp) // Increased for better visibility
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                    .padding(dimensionResource(id = R.dimen.spacing_medium)),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_small)))
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Description,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = stringResource(R.string.empty_notes_title),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                "No notes yet",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_xsmall)))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.empty_notes_subtitle),
+                "Tap the + button to create your first note",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
-
     }
 }
-@Composable
 
-
-// Helper to clean HTML entities
-fun String.cleanHtmlEntities(): String {
-    return this
-        .replace("&colon;", ":")
-        .replace("&lsqb;", "[")
-        .replace("&rsqb;", "]")
-        .replace("&amp;", "&")
-        .replace("&nbsp;", " ")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&apos;", "'")
-}
-
-// Map Category to requested colors
-@Composable
+// Helper functions
 fun getCategoryColor(category: Category): Color {
-    return when (category.name.uppercase()) {
-        "MEETINGS" -> com.flownote.ui.theme.CategoryMeetings
-        "TASKS" -> com.flownote.ui.theme.CategoryTasks
-        "RECIPES" -> com.flownote.ui.theme.CategoryRecipes
-        "CODE" -> com.flownote.ui.theme.CategoryCode
-        "IDEAS" -> com.flownote.ui.theme.CategoryIdeas
-        "GENERAL" -> com.flownote.ui.theme.CategoryGeneral
-        else -> MaterialTheme.colorScheme.primary // Fallback
+    return when (category) {
+        Category.GENERAL -> Color(0xFF6B7280)
+        Category.MEETINGS -> Color(0xFF3B82F6)
+        Category.TASKS -> Color(0xFF10B981)
+        Category.RECIPES -> Color(0xFFF59E0B)
+        Category.CODE -> Color(0xFFA855F7)
+        Category.IDEAS -> Color(0xFFFBBF24)
+        Category.STUDY -> Color(0xFF8B5CF6) // Purple for study
     }
 }
 
-// Relative time formatting
-fun getRelativeTime(date: java.util.Date): String {
-    val now = java.util.Date().time
-    val time = date.time
-    val diff = now - time
-    
+fun getCategoryIcon(category: Category): ImageVector {
+    return when (category) {
+        Category.GENERAL -> Icons.Default.Folder
+        Category.MEETINGS -> Icons.Default.DateRange
+        Category.TASKS -> Icons.Default.CheckCircle
+        Category.RECIPES -> Icons.Default.Restaurant
+        Category.CODE -> Icons.Default.Code
+        Category.IDEAS -> Icons.Default.Lightbulb
+        Category.STUDY -> Icons.Default.School // Book/School icon for study
+    }
+}
+
+fun getRelativeTime(date: Date): String {
+    val now = Date()
+    val diff = now.time - date.time
     val seconds = diff / 1000
     val minutes = seconds / 60
     val hours = minutes / 60
     val days = hours / 24
-    
+
     return when {
-        seconds < 60 -> "Just now"
+        minutes < 1 -> "Just now"
         minutes < 60 -> "${minutes}m ago"
         hours < 24 -> "${hours}h ago"
         days < 7 -> "${days}d ago"
-        else -> java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(date)
-    }
-}
-
-// Map Category to requested Icons
-@Composable
-fun getCategoryIcon(category: Category): androidx.compose.ui.graphics.vector.ImageVector {
-    return when (category.name.uppercase()) {
-        "MEETINGS" -> Icons.Default.DateRange // Calendar replacement
-        "TASKS" -> Icons.Default.CheckCircle
-        "RECIPES" -> Icons.Default.Restaurant // Might fail if not in Core, will fall back to List during error check or choose standard
-        "CODE" -> Icons.Default.Code
-        "IDEAS" -> Icons.Default.Lightbulb
-        else -> Icons.Default.Folder // General
-    }
-}
-
-@Composable
-fun NoteCard(
-    note: Note,
-    onClick: () -> Unit,
-    searchQuery: String = ""
-) {
-    val categoryColor = getCategoryColor(note.category)
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    // Smooth scale animation (0.98 scale on press)
-    val scale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        label = "scale"
-    )
-
-    // Using Material 3 Elevated Card
-    ElevatedCard(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            },
-
-        shape = RoundedCornerShape(dimensionResource(id = R.dimen.card_corner_radius)), // Standard M3 shape
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface // M3 standard card color
-        ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = dimensionResource(id = R.dimen.card_elevation_resting), // Low elevation at rest
-            pressedElevation = dimensionResource(id = R.dimen.card_elevation_pressed)
-        ),
-        interactionSource = interactionSource
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min) // Height Intrinsic needed for indicator to stretch, IF we want full height. 
-            // Warning: IntrinsicSize.Min was suspect for crash, but strictly required for "Full Height" indicator in a dynamic height card.
-            // Let's try WITHOUT Intrinsic first if possible, OR re-introduce carefully.
-            // A safer way for the indicator is to just be a box in the row, but if the content grows, the box needs to grow. 
-            // I will use `height(IntrinsicSize.Min)` again but ensure the parent lazy column isn't doing something weird. 
-            // If it crashes again, I'll switch to a modifier-less Box that fills parent *if* possible, or just fixed height.
-            // ACTUALLY, checking the crash log, it was likely just "layout" issues. 
-            // Alternative: Draw the border with `drawBehind` or `border` modifier on the Card itself? 
-            // Request: "Add vertical colored bar on left (4dp width, full height)".
-            // I will strictly use `height(IntrinsicSize.Min)` because that is the correct Compose way. If it crashes, the issue is typically deeply nested intrinsics.
-        ) {
-            // Category Indicator
-            Box(
-                modifier = Modifier
-                    .width(dimensionResource(id = R.dimen.card_indicator_width))
-                    .fillMaxHeight()
-                    .background(categoryColor)
-            )
-
-            // Content Container
-            Column(
-                modifier = Modifier
-                    .padding(dimensionResource(id = R.dimen.card_padding)) // All sides 16dp
-                    .weight(1f)
-            ) {
-                // Header: Title + Pin
-                Row(
-                    verticalAlignment = Alignment.Top,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                        // Highlight title matches
-                        val titleText = note.title.ifBlank { "Untitled" }
-                        val titleAnnotated = buildHighlightedAnnotatedString(
-                            text = titleText,
-                            query = searchQuery,
-                            highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                        )
-
-                        Text(
-                            text = titleAnnotated,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    
-                    if (note.isPinned) {
-                        Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
-                        Icon(
-                            imageVector = Icons.Default.PushPin,
-                            contentDescription = "Pinned",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(dimensionResource(id = R.dimen.icon_size_small)) 
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_xsmall))) // 8dp spacing
-
-                // Content Preview
-                val plainContent = note.getPlainTextContent().cleanHtmlEntities()
-                if (plainContent.isNotBlank()) {
-                    val contentAnnotated = buildHighlightedAnnotatedString(
-                        text = plainContent,
-                        query = searchQuery,
-                        highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    )
-
-                    Text(
-                        text = contentAnnotated,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_xsmall))) // 8dp spacing
-                }
-
-                // Footer: Date + Category
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = getRelativeTime(note.updatedAt),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Category Chip (Small visual)
-                    // If note.category is distinct
-                    Surface(
-                        color = categoryColor.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(dimensionResource(id = R.dimen.corner_radius_xs)),
-                    ) {
-                        Text(
-                            text = note.category.displayName,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = categoryColor
-                            ),
-                            modifier = Modifier.padding(
-                                horizontal = dimensionResource(id = R.dimen.spacing_xsmall), 
-                                vertical = dimensionResource(id = R.dimen.spacing_xxsmall)
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Helper to build an AnnotatedString with highlighted query matches
-fun buildHighlightedAnnotatedString(text: String, query: String, highlightColor: Color): AnnotatedString {
-    if (query.isBlank()) return AnnotatedString(text)
-    val lower = text.lowercase()
-    val q = query.lowercase()
-    return buildAnnotatedString {
-        var start = 0
-        var idx = lower.indexOf(q, start)
-        while (idx >= 0) {
-            if (idx > start) append(text.substring(start, idx))
-            withStyle(SpanStyle(background = highlightColor)) {
-                append(text.substring(idx, idx + q.length))
-            }
-            start = idx + q.length
-            idx = lower.indexOf(q, start)
-        }
-        if (start < text.length) append(text.substring(start))
+        else -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(date)
     }
 }

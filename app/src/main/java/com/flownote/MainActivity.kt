@@ -53,8 +53,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     // Extract noteId from intent (for notification deep links)
-                    val noteId = intent?.getStringExtra("note_id")
-                    MainScreen(initialNoteId = noteId)
+                    MainScreen()
                 }
             }
         }

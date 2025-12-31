@@ -49,18 +49,30 @@ fun NavGraph(
             HomeScreen(
                 onNoteClick = { noteId ->
                     navController.navigate(Screen.NoteEditor.createRoute(noteId))
-                },
-                onNewNoteClick = {
-                    navController.navigate(Screen.NoteEditor.createRoute("new"))
-                },
-                onSearchClick = {
-                    navController.navigate(Screen.Search.route)
                 }
             )
         }
         
-
-        
+        // Categories screen - REMOVED (functionality merged into Home screen)
+        /*
+        composable(
+            route = Screen.Categories.route,
+            enterTransition = { fadeIn() },
+            exitTransition = { fadeOut() }
+        ) {
+            com.flownote.ui.screens.categories.CategoriesScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onCategoryClick = { category ->
+                    // Navigate to home and set category filter
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                    }
+                    // TODO: Pass category to HomeScreen via savedStateHandle or ViewModel
+                }
+            )
+        }
+        */
+          
         // Note editor screen
         composable(
             route = Screen.NoteEditor.route,
@@ -80,6 +92,17 @@ fun NavGraph(
             val noteId = backStackEntry.arguments?.getString("noteId") ?: "new"
             com.flownote.ui.screens.addedit.NoteEditorScreen(
                 noteId = noteId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Upcoming Features screen
+        composable(
+            route = Screen.UpcomingFeatures.route,
+            exitTransition = { fadeOut() },
+            popEnterTransition = { fadeIn() }
+        ) {
+            com.flownote.ui.screens.upcomingfeatures.UpcomingFeaturesScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

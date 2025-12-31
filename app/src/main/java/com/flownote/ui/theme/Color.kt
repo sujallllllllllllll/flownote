@@ -2,45 +2,45 @@ package com.flownote.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Material 3 Core Colors (Deep Blue Theme)
-val Primary = Color(0xFF1976D2)
-val OnPrimary = Color(0xFFFFFFFF)
-val PrimaryContainer = Color(0xFFD6E3FF) // Light Blue container
-val OnPrimaryContainer = Color(0xFF001B3D) // Dark Blue text
+// Material 3 Core Colors (Dark Slate Blue + Cyan Theme)
+val Primary = Color(0xFF00D9FF) // Vibrant Cyan - main accent
+val OnPrimary = Color(0xFF003544) // Dark cyan for text on primary
+val PrimaryContainer = Color(0xFF004D61) // Darker cyan container
+val OnPrimaryContainer = Color(0xFFB8EAFF) // Light cyan text
 
-val Secondary = Color(0xFF0288D1) // Lighter Blue Accent
-val OnSecondary = Color(0xFFFFFFFF)
-val SecondaryContainer = Color(0xFFE1F5FE)
-val OnSecondaryContainer = Color(0xFF001D36)
+val Secondary = Color(0xFF4DD0E1) // Lighter Cyan Accent
+val OnSecondary = Color(0xFF003640)
+val SecondaryContainer = Color(0xFF004F5C)
+val OnSecondaryContainer = Color(0xFFB2EBF2)
 
-val Tertiary = Color(0xFF009688) // Teal
-val OnTertiary = Color(0xFFFFFFFF)
-val TertiaryContainer = Color(0xFFB2DFDB)
-val OnTertiaryContainer = Color(0xFF00201A)
+val Tertiary = Color(0xFFA855F7) // Electric Purple for variety
+val OnTertiary = Color(0xFF3B0764)
+val TertiaryContainer = Color(0xFF581C87)
+val OnTertiaryContainer = Color(0xFFE9D5FF)
 
-val Error = Color(0xFFB3261E)
-val OnError = Color(0xFFFFFFFF)
-val ErrorContainer = Color(0xFFF9DEDC)
-val OnErrorContainer = Color(0xFF410E0B)
+val Error = Color(0xFFFF5449)
+val OnError = Color(0xFF690005)
+val ErrorContainer = Color(0xFF93000A)
+val OnErrorContainer = Color(0xFFFFDAD6)
 
-// Surface Colors (Dark)
-val SurfaceDark = Color(0xFF121212) // Standard Dark
-val SurfaceVariantDark = Color(0xFF424242)
-val OnSurfaceDark = Color(0xFFE0E0E0)
-val OnSurfaceVariantDark = Color(0xFFC2C2C2)
-val OutlineDark = Color(0xFF938F99)
+// Surface Colors (Dark) - Deep Blue-Gray Theme
+val SurfaceDark = Color(0xFF1A1F2E) // Darker blue-gray background
+val SurfaceVariantDark = Color(0xFF2A3142) // Lighter blue-gray for cards
+val OnSurfaceDark = Color(0xFFE3E8EF) // Light text
+val OnSurfaceVariantDark = Color(0xFFB8C1CC) // Muted text
+val OutlineDark = Color(0xFF3D4556) // Subtle borders
 
-// Surface Colors (Light)
-val SurfaceLight = Color(0xFFFFFFFF) // Pure White
-val SurfaceVariantLight = Color(0xFFF0F2F5) // Very light grey/blue tint
-val OnSurfaceLight = Color(0xFF191C1E)
-val OnSurfaceVariantLight = Color(0xFF40484C)
-val OutlineLight = Color(0xFF70787D)
+// Surface Colors (Light) - Keep for light mode support
+val SurfaceLight = Color(0xFFFAFBFC) // Slightly off-white
+val SurfaceVariantLight = Color(0xFFEDF2F7) // Very light blue-gray
+val OnSurfaceLight = Color(0xFF1A202C)
+val OnSurfaceVariantLight = Color(0xFF4A5568)
+val OutlineLight = Color(0xFFCBD5E0)
 
-// Category Colors (Requested)
-val CategoryMeetings = Color(0xFF2196F3) // Blue
-val CategoryTasks = Color(0xFFFF9800) // Orange
-val CategoryRecipes = Color(0xFF4CAF50) // Green
-val CategoryCode = Color(0xFF9C27B0) // Purple
-val CategoryIdeas = Color(0xFFFFC107) // Yellow
-val CategoryGeneral = Color(0xFF757575) // Gray
+// Category Colors - Modern palette (replaced green with teal)
+val CategoryMeetings = Color(0xFF3B82F6) // Blue
+val CategoryTasks = Color(0xFFF59E0B) // Amber/Orange
+val CategoryRecipes = Color(0xFF14B8A6) // Teal (replaced green)
+val CategoryCode = Color(0xFFA855F7) // Purple
+val CategoryIdeas = Color(0xFFFBBF24) // Yellow
+val CategoryGeneral = Color(0xFF6B7280) // Gray

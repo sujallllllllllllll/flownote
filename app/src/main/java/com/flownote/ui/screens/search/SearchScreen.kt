@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.flownote.ui.screens.home.NoteCard
+import com.flownote.ui.screens.home.NoteListItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,10 +100,9 @@ fun SearchScreen(
                     }
                 } else {
                     items(searchResults) { note ->
-                            NoteCard(
+                            NoteListItem(
                                 note = note,
-                                onClick = { onNoteClick(note.id) },
-                                searchQuery = searchQuery
+                                onNoteClick = { onNoteClick(note.id) }
                             )
                     }
                 }

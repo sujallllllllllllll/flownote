@@ -3,22 +3,24 @@ package com.flownote.ui.screens.settings
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.dimensionResource
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,16 +35,16 @@ import java.util.Locale
 
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateToContactUs: () -> Unit = {},
-    onNavigateToPrivacyPolicy: () -> Unit = {},
-    onNavigateToUpcomingFeatures: () -> Unit = {}
+    onNavigateToContactUs: () -> Unit,
+    onNavigateToPrivacyPolicy: () -> Unit,
+    onNavigateToUpcomingFeatures: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val themeMode by viewModel.themeMode.collectAsState()
     val useDynamicColors by viewModel.useDynamicColors.collectAsState()
     val backupState by viewModel.backupState.collectAsState()
     
-    var showThemeDialog by remember { mutableStateOf(false) }
     var showClearDataDialog by remember { mutableStateOf(false) }
 
     // File picker for export
@@ -63,7 +65,6 @@ fun SettingsScreen(
     LaunchedEffect(backupState) {
         when (backupState) {
             is BackupState.ExportSuccess -> {
-                // Show dialog asking to clear data
                 showClearDataDialog = true
             }
             else -> {}
@@ -71,9 +72,20 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Settings") }
+                title = { 
+                    Text(
+                        "Settings",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { paddingValues ->
@@ -82,290 +94,402 @@ fun SettingsScreen(
                 .padding(paddingValues)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = dimensionResource(id = R.dimen.spacing_medium)) // 16dp bottom breathing space
+                .padding(bottom = dimensionResource(id = R.dimen.spacing_medium))
         ) {
-            // HIDDEN FOR MVP LAUNCH - Uncomment to enable Backup & Restore
-            /*
-            // Backup & Restore Section
+            // APPEARANCE Section
+            SectionHeader("APPEARANCE")
+            
+            // Theme Selector Pills
+            ThemeSelector(
+                currentTheme = themeMode,
+                onThemeSelected = { viewModel.setTheme(it) }
+            )
+            
             Text(
-                text = "Backup & Restore",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+                text = "FlowNotes will automatically adjust to your device's appearance settings.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(
-                    start = dimensionResource(id = R.dimen.screen_margin_horizontal), 
-                    top = dimensionResource(id = R.dimen.spacing_medium), 
-                    bottom = dimensionResource(id = R.dimen.spacing_xsmall)
+                    horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal),
+                    vertical = dimensionResource(id = R.dimen.spacing_small)
                 )
             )
 
-            ListItem(
-                headlineContent = { Text("Export Backup") },
-                supportingContent = { Text("Save all notes to a ZIP file") },
-                leadingContent = {
-                    Icon(Icons.Default.Upload, contentDescription = null)
-                },
-                modifier = Modifier.clickable {
-                    val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-                    val fileName = "FlowNotes_Backup_${dateFormat.format(Date())}.zip"
-                    exportLauncher.launch(fileName)
-                }
-            )
+            Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_medium)))
 
-            ListItem(
-                headlineContent = { Text("Import Backup") },
-                supportingContent = { Text("Restore notes from a ZIP file") },
-                leadingContent = {
-                    Icon(Icons.Default.Download, contentDescription = null)
-                },
-                modifier = Modifier.clickable {
-                    importLauncher.launch(arrayOf("application/zip"))
-                }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_small)))
-            */
-
-            // About Section
-            Text(
-                text = "About",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(
-                    start = dimensionResource(id = R.dimen.screen_margin_horizontal),
-                    top = dimensionResource(id = R.dimen.spacing_medium),
-                    bottom = dimensionResource(id = R.dimen.spacing_xsmall)
+            // SUPPORT & COMMUNITY Section
+            SectionHeader("SUPPORT & COMMUNITY")
+            
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
+                shape = RoundedCornerShape(dimensionResource(id = R.dimen.card_corner_radius)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-            )
-
-            ListItem(
-                headlineContent = { Text("Contact Us") },
-                supportingContent = { Text("Get in touch with feedback or questions") },
-                leadingContent = {
-                    Icon(Icons.Default.Email, contentDescription = null)
-                },
-                modifier = Modifier.clickable {
-                    onNavigateToContactUs()
-                }
-            )
-
-            ListItem(
-                headlineContent = { Text("Privacy Policy") },
-                supportingContent = { Text("Learn how we protect your data") },
-                leadingContent = {
-                    Icon(Icons.Default.Lock, contentDescription = null)
-                },
-                modifier = Modifier.clickable {
-                    onNavigateToPrivacyPolicy()
-                }
-            )
-
-            ListItem(
-                headlineContent = { Text("Upcoming Features") },
-                supportingContent = { Text("Preview what's being explored") },
-                leadingContent = {
-                    Icon(Icons.Default.Lightbulb, contentDescription = null)
-                },
-                modifier = Modifier.clickable {
-                    onNavigateToUpcomingFeatures()
-                }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))) // 8dp - tighter
-
-            // Appearance Section
-            Text(
-                text = "Appearance",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(
-                    start = dimensionResource(id = R.dimen.screen_margin_horizontal), 
-                    top = dimensionResource(id = R.dimen.spacing_medium), 
-                    bottom = dimensionResource(id = R.dimen.spacing_xsmall)
+            ) {
+                SettingsItem(
+                    icon = Icons.Default.Lightbulb,
+                    iconTint = Color(0xFF8B5CF6),
+                    title = "Upcoming Features",
+                    subtitle = "See what's coming next",
+                    onClick = onNavigateToUpcomingFeatures
                 )
-            )
-
-            // Theme Selection
-            ListItem(
-                headlineContent = { Text("App Theme") },
-                supportingContent = {
-                    Text(
-                        when (themeMode) {
-                            ThemeMode.LIGHT -> "Light"
-                            ThemeMode.DARK -> "Dark"
-                            ThemeMode.SYSTEM -> "System Default"
+                
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = dimensionResource(id = R.dimen.spacing_xlarge)),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
+                
+                SettingsItem(
+                    icon = Icons.Default.Favorite,
+                    iconTint = Color(0xFFEC4899),
+                    title = "Support FlowNotes",
+                    subtitle = "Help keep this app free and ad-free",
+                    onClick = { 
+                        // Open browser to donation page
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            data = android.net.Uri.parse("https://flownotes-presencematic.netlify.app/donate")
                         }
-                    )
-                },
-                modifier = Modifier.clickable { showThemeDialog = true }
-            )
-
-            // Dynamic Color Toggle (Only Android 12+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                ListItem(
-                    headlineContent = { Text("Dynamic Colors") },
-                    supportingContent = { Text("Use wallpaper colors") },
-                    trailingContent = {
-                        Switch(
-                            checked = useDynamicColors,
-                            onCheckedChange = { viewModel.setDynamicColor(it) }
-                        )
+                        context.startActivity(intent)
                     }
+                )
+                
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = dimensionResource(id = R.dimen.spacing_xlarge)),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
+                
+                SettingsItem(
+                    icon = Icons.Default.Email,
+                    iconTint = Color(0xFF3B82F6),
+                    title = "Contact & Help",
+                    subtitle = "Get in touch with feedback or questions",
+                    onClick = onNavigateToContactUs
                 )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.spacing_xsmall))) // 8dp - tighter
-        }
+            Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_medium)))
 
-        // Theme Dialog
-        if (showThemeDialog) {
-            AlertDialog(
-                onDismissRequest = { showThemeDialog = false },
-                title = { Text("Choose Theme") },
-                text = {
-                    Column {
-                        ThemeOption(
-                            text = "System Default",
-                            selected = themeMode == ThemeMode.SYSTEM,
-                            onClick = {
-                                viewModel.setTheme(ThemeMode.SYSTEM)
-                                showThemeDialog = false
-                            }
-                        )
-                        ThemeOption(
-                            text = "Light",
-                            selected = themeMode == ThemeMode.LIGHT,
-                            onClick = {
-                                viewModel.setTheme(ThemeMode.LIGHT)
-                                showThemeDialog = false
-                            }
-                        )
-                        ThemeOption(
-                            text = "Dark",
-                            selected = themeMode == ThemeMode.DARK,
-                            onClick = {
-                                viewModel.setTheme(ThemeMode.DARK)
-                                showThemeDialog = false
-                            }
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showThemeDialog = false }) {
-                        Text("Cancel")
-                    }
+            // ABOUT Section
+            SectionHeader("ABOUT")
+            
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
+                shape = RoundedCornerShape(dimensionResource(id = R.dimen.card_corner_radius)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                SettingsItem(
+                    icon = Icons.Default.Lock,
+                    iconTint = Color(0xFF10B981),
+                    title = "Privacy Policy",
+                    subtitle = "Learn how we protect your data",
+                    onClick = onNavigateToPrivacyPolicy
+                )
+                
+                // TODO: Uncomment when app is on Play Store
+                /*
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = dimensionResource(id = R.dimen.spacing_xlarge)),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
+                
+                SettingsItem(
+                    icon = Icons.Default.Star,
+                    iconTint = Color(0xFFFBBF24),
+                    title = "Rate on App Store",
+                    subtitle = "Share your experience",
+                    onClick = { /* Rate action */ }
+                )
+                */
+            }
+
+            Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_large)))
+
+            // App Version Footer
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(dimensionResource(id = R.dimen.spacing_medium)),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // App Icon
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = "FlowNotes",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
-            )
+                
+                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_small)))
+                
+                Text(
+                    text = "FlowNotes v1.0.0 (Build 142)",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Text(
+                    text = "Offline-first & Private",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
         }
 
-        // Clear Data Confirmation Dialog (after export)
-        if (showClearDataDialog) {
-            AlertDialog(
-                onDismissRequest = {
-                    showClearDataDialog = false
-                    viewModel.resetBackupState()
-                },
-                icon = { Icon(Icons.Default.Upload, contentDescription = null) },
-                title = { Text("Backup Exported Successfully") },
-                text = { Text("Your backup has been saved. Do you want to clear all app data now?") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showClearDataDialog = false
-                            viewModel.clearAllData()
-                        }
-                    ) {
-                        Text("Yes, Clear Data")
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            showClearDataDialog = false
-                            viewModel.resetBackupState()
-                        }
-                    ) {
-                        Text("No, Keep Data")
-                    }
-                }
-            )
-        }
-
-        // Loading Dialog
-        if (backupState is BackupState.Loading) {
-            AlertDialog(
-                onDismissRequest = {},
-                title = { Text("Please wait") },
-                text = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        Text("Processing...")
-                    }
-                },
-                confirmButton = {}
-            )
-        }
-
-        // Import Success Dialog
-        if (backupState is BackupState.ImportSuccess) {
-            val noteCount = (backupState as BackupState.ImportSuccess).noteCount
-            AlertDialog(
-                onDismissRequest = { viewModel.resetBackupState() },
-                icon = { Icon(Icons.Default.Download, contentDescription = null) },
-                title = { Text("Import Successful") },
-                text = { Text("Successfully imported $noteCount note${if (noteCount != 1) "s" else ""}.") },
-                confirmButton = {
-                    TextButton(onClick = { viewModel.resetBackupState() }) {
-                        Text("OK")
-                    }
-                }
-            )
-        }
-
-        // Clear Data Success Dialog
-        if (backupState is BackupState.ClearSuccess) {
-            AlertDialog(
-                onDismissRequest = { viewModel.resetBackupState() },
-                title = { Text("Data Cleared") },
-                text = { Text("All notes have been removed from the app.") },
-                confirmButton = {
-                    TextButton(onClick = { viewModel.resetBackupState() }) {
-                        Text("OK")
-                    }
-                }
-            )
-        }
-
-        // Error Dialog
-        if (backupState is BackupState.Error) {
-            val errorMessage = (backupState as BackupState.Error).message
-            AlertDialog(
-                onDismissRequest = { viewModel.resetBackupState() },
-                title = { Text("Error") },
-                text = { Text(errorMessage) },
-                confirmButton = {
-                    TextButton(onClick = { viewModel.resetBackupState() }) {
-                        Text("OK")
-                    }
-                }
-            )
-        }
+        // Dialogs
+        BackupDialogs(
+            backupState = backupState,
+            showClearDataDialog = showClearDataDialog,
+            onDismissClearDialog = {
+                showClearDataDialog = false
+                viewModel.resetBackupState()
+            },
+            onClearData = {
+                showClearDataDialog = false
+                viewModel.clearAllData()
+            },
+            onResetBackupState = { viewModel.resetBackupState() }
+        )
     }
 }
 
 @Composable
-fun ThemeOption(text: String, selected: Boolean, onClick: () -> Unit) {
+fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium.copy(
+            fontWeight = FontWeight.SemiBold
+        ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        modifier = Modifier.padding(
+            start = dimensionResource(id = R.dimen.screen_margin_horizontal),
+            top = dimensionResource(id = R.dimen.spacing_medium),
+            bottom = dimensionResource(id = R.dimen.spacing_small)
+        )
+    )
+}
+
+@Composable
+fun ThemeSelector(
+    currentTheme: ThemeMode,
+    onThemeSelected: (ThemeMode) -> Unit
+) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
+        horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.spacing_small))
+    ) {
+        ThemePill(
+            icon = Icons.Default.LightMode,
+            label = "Light",
+            selected = currentTheme == ThemeMode.LIGHT,
+            onClick = { onThemeSelected(ThemeMode.LIGHT) },
+            modifier = Modifier.weight(1f)
+        )
+        
+        ThemePill(
+            icon = Icons.Default.DarkMode,
+            label = "Dark",
+            selected = currentTheme == ThemeMode.DARK,
+            onClick = { onThemeSelected(ThemeMode.DARK) },
+            modifier = Modifier.weight(1f)
+        )
+        
+        ThemePill(
+            icon = Icons.Default.PhoneAndroid,
+            label = "System",
+            selected = currentTheme == ThemeMode.SYSTEM,
+            onClick = { onThemeSelected(ThemeMode.SYSTEM) },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+fun ThemePill(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+            contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        border = if (!selected) ButtonDefaults.outlinedButtonBorder else null,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium
+        )
+    }
+}
+
+@Composable
+fun SettingsItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = dimensionResource(id = R.dimen.spacing_small))
+            .padding(dimensionResource(id = R.dimen.spacing_medium)),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = null)
-        Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
-        Text(text)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(24.dp)
+        )
+        
+        Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_medium)))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Medium
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+        
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+fun BackupDialogs(
+    backupState: BackupState,
+    showClearDataDialog: Boolean,
+    onDismissClearDialog: () -> Unit,
+    onClearData: () -> Unit,
+    onResetBackupState: () -> Unit
+) {
+    // Clear Data Confirmation Dialog
+    if (showClearDataDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissClearDialog,
+            icon = { Icon(Icons.Default.Upload, contentDescription = null) },
+            title = { Text("Backup Exported Successfully") },
+            text = { Text("Your backup has been saved. Do you want to clear all app data now?") },
+            confirmButton = {
+                TextButton(onClick = onClearData) {
+                    Text("Yes, Clear Data")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissClearDialog) {
+                    Text("No, Keep Data")
+                }
+            }
+        )
+    }
+
+    // Loading Dialog
+    if (backupState is BackupState.Loading) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Please wait") },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Text("Processing...")
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // Import Success Dialog
+    if (backupState is BackupState.ImportSuccess) {
+        val noteCount = (backupState as BackupState.ImportSuccess).noteCount
+        AlertDialog(
+            onDismissRequest = onResetBackupState,
+            icon = { Icon(Icons.Default.Download, contentDescription = null) },
+            title = { Text("Import Successful") },
+            text = { Text("Successfully imported $noteCount note${if (noteCount != 1) "s" else ""}.") },
+            confirmButton = {
+                TextButton(onClick = onResetBackupState) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // Clear Data Success Dialog
+    if (backupState is BackupState.ClearSuccess) {
+        AlertDialog(
+            onDismissRequest = onResetBackupState,
+            title = { Text("Data Cleared") },
+            text = { Text("All notes have been removed from the app.") },
+            confirmButton = {
+                TextButton(onClick = onResetBackupState) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // Error Dialog
+    if (backupState is BackupState.Error) {
+        val errorMessage = (backupState as BackupState.Error).message
+        AlertDialog(
+            onDismissRequest = onResetBackupState,
+            title = { Text("Error") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                TextButton(onClick = onResetBackupState) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }

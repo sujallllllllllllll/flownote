@@ -95,7 +95,12 @@ fun FlowNoteTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
+            // Use surface color for immersive dark theme
+            window.statusBarColor = if (darkTheme) {
+                colorScheme.surface.toArgb()
+            } else {
+                colorScheme.primary.toArgb()
+            }
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

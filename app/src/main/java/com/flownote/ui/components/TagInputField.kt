@@ -36,18 +36,21 @@ fun TagInputField(
                     InputChip(
                         selected = true,
                         onClick = { onRemoveTag(tag) },
-                        label = { Text(tag) },
+                        label = { Text("#$tag") }, // Add hashtag prefix
                         trailingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Remove tag",
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(14.dp) // Smaller icon
                             )
                         },
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), // More rounded
                         colors = InputChipDefaults.inputChipColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            trailingIconColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                        ),
+                        border = null // Remove border
                     )
                 }
             }
@@ -67,7 +70,12 @@ fun TagInputField(
                     text = it
                 }
             },
-            placeholder = { Text("Add tag...") },
+            placeholder = { 
+                Text(
+                    "Add tag...",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                ) 
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(
@@ -83,8 +91,11 @@ fun TagInputField(
             ),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent
-            )
+                unfocusedBorderColor = Color.Transparent,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+            ),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
         )
     }
 }
