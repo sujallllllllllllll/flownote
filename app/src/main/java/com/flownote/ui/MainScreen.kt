@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -68,10 +69,10 @@ fun MainScreen() {
                             icon = {
                                 Icon(
                                     Icons.Default.Home,
-                                    contentDescription = "Notes"
+                                    contentDescription = stringResource(R.string.nav_home)
                                 )
                             },
-                            label = { Text("Notes") },
+                            label = { Text(stringResource(R.string.nav_home)) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
                                 selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -105,7 +106,7 @@ fun MainScreen() {
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
-                                    contentDescription = "Create Note",
+                                    contentDescription = stringResource(R.string.cd_create_note),
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -126,10 +127,10 @@ fun MainScreen() {
                             icon = {
                                 Icon(
                                     Icons.Default.Settings,
-                                    contentDescription = "Settings"
+                                    contentDescription = stringResource(R.string.nav_settings)
                                 )
                             },
-                            label = { Text("Settings") },
+                            label = { Text(stringResource(R.string.nav_settings)) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
                                 selectedTextColor = MaterialTheme.colorScheme.primary,

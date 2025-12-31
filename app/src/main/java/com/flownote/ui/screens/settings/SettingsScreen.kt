@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.flownote.R
 import com.flownote.data.repository.ThemeMode
@@ -38,6 +39,7 @@ fun SettingsScreen(
     onNavigateToContactUs: () -> Unit,
     onNavigateToPrivacyPolicy: () -> Unit,
     onNavigateToUpcomingFeatures: () -> Unit,
+    onNavigateToHelp: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -116,6 +118,51 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_medium)))
+            
+            // OFFLINE-FIRST MODE Indicator
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dimensionResource(id = R.dimen.screen_margin_horizontal)),
+                shape = RoundedCornerShape(dimensionResource(id = R.dimen.card_corner_radius)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(dimensionResource(id = R.dimen.spacing_medium)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudOff,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_medium)))
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_offline_mode),
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.settings_offline_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.spacing_medium)))
 
             // SUPPORT & COMMUNITY Section
             SectionHeader("SUPPORT & COMMUNITY")
@@ -167,6 +214,19 @@ fun SettingsScreen(
                     title = "Contact & Help",
                     subtitle = "Get in touch with feedback or questions",
                     onClick = onNavigateToContactUs
+                )
+                
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = dimensionResource(id = R.dimen.spacing_xlarge)),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
+                
+                SettingsItem(
+                    icon = Icons.Default.Help,
+                    iconTint = Color(0xFF10B981),
+                    title = "Help & Guide",
+                    subtitle = "Learn how to use FlowNotes",
+                    onClick = onNavigateToHelp
                 )
             }
 

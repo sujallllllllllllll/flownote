@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material3.*
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
@@ -35,11 +36,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.dimensionResource
@@ -84,6 +89,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
+import com.flownote.util.rememberWindowSizeClass
+import com.flownote.util.getMaxContentWidth
+// Removed experimental relocation imports to avoid unresolved-reference on older Compose
 
 /**
  * Enhanced Screen for adding or editing a note
@@ -115,9 +123,24 @@ fun NoteEditorScreen(
     val audioPath by viewModel.audioPath.collectAsState()
     val tags by viewModel.tags.collectAsState()
     val speechState by viewModel.speechState.collectAsState()
+    val error by viewModel.error.collectAsState()
     
     val context = LocalContext.current
     val contentFocusRequester = remember { FocusRequester() }
+    
+    // Snackbar host state
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Show error snackbar when error occurs
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
+    }
     
     // Navigate back when saved
     LaunchedEffect(isNoteSaved) {
@@ -138,7 +161,7 @@ fun NoteEditorScreen(
     // Determine content color based on background luminance
     val isDarkBackground = calculateLuminance(surfaceColor) < 0.5
     val contentColor = if (isDarkBackground) Color.White else Color.Black
-    val iconColor = contentColor.copy(alpha = 0.7f)
+    val iconColor = contentColor // Better contrast without alpha
 
 
 
@@ -197,6 +220,9 @@ fun NoteEditorScreen(
         if(!isLoading && !isInitialized) {
              state.setHtml(content)
              isInitialized = true
+             // Auto-focus content field after initialization
+             delay(150) // Small delay to ensure composition is complete
+             contentFocusRequester.requestFocus()
         }
     }
     
@@ -327,6 +353,7 @@ fun NoteEditorScreen(
     Scaffold(
         containerColor = surfaceColor,
         contentWindowInsets = WindowInsets.ime, // Handle keyboard
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {},
@@ -468,144 +495,159 @@ fun NoteEditorScreen(
         bottomBar = {
             BottomAppBar(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentPadding = PaddingValues(0.dp), // Remove padding for tighter layout
-                    windowInsets = WindowInsets(0, 0, 0, 0) // Remove default insets
+                    contentPadding = PaddingValues(0.dp) // Remove padding for tighter layout
                 ) {
-                 // Formatting Toolbar
-                 RichTextEditorToolbar(
-                    state = state,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                 )
-                 
-                 // Mic / Voice Dictation with Permission Request
-                 val isListening = speechState is SpeechToTextManager.SpeechState.Listening
-                 val context = LocalContext.current
-                 
-                 // Check if permission is granted
-                 val hasMicPermission = remember {
-                     ContextCompat.checkSelfPermission(
-                         context,
-                         Manifest.permission.RECORD_AUDIO
-                     ) == PackageManager.PERMISSION_GRANTED
-                 }
-                 
-                 // Pulsing animation for active listening
-                 val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
-                 val alpha by infiniteTransition.animateFloat(
-                     initialValue = 0.3f,
-                     targetValue = 0.8f,
-                     animationSpec = infiniteRepeatable(
-                         animation = tween(1000, easing = FastOutSlowInEasing),
-                         repeatMode = RepeatMode.Reverse
-                     ),
-                     label = "alpha_animation"
-                 )
-                 
-                 Box(
+                 Row(
                      modifier = Modifier
-                         .size(48.dp)
-                         .background(
-                             color = if (isListening) {
-                                 MaterialTheme.colorScheme.primary.copy(alpha = alpha)
-                             } else {
-                                 Color.Transparent
-                             },
-                             shape = CircleShape
-                         ),
-                     contentAlignment = Alignment.Center
+                         .fillMaxWidth()
+                         .imePadding(), // Push toolbar above keyboard
+                     verticalAlignment = Alignment.CenterVertically
                  ) {
-                     IconButton(
-                         onClick = {
-                             if (isListening) {
-                                 // Stop listening
-                                 viewModel.speechManager.stopListening()
-                             } else {
-                                 // Check permission first
-                                 if (hasMicPermission) {
-                                     viewModel.speechManager.startListening()
-                                 } else {
-                                     // Request permission
-                                     micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                 }
-                             }
-                         }
-                     ) {
-                         Icon(
-                             if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
-                             "Voice Dictation",
-                             tint = if (isListening) {
-                                 MaterialTheme.colorScheme.onPrimary
-                             } else {
-                                 MaterialTheme.colorScheme.onSurface
-                             }
-                         )
-                     }
-                 }
+                  // Formatting Toolbar
+                  RichTextEditorToolbar(
+                     state = state,
+                     contentColor = MaterialTheme.colorScheme.onSurface,
+                     modifier = Modifier.weight(1f)
+                  )
+                  
+                  // Mic / Voice Dictation with Permission Request
+                  val isListening = speechState is SpeechToTextManager.SpeechState.Listening
+                  val context = LocalContext.current
+                  
+                  // Check if permission is granted
+                  val hasMicPermission = remember {
+                      ContextCompat.checkSelfPermission(
+                          context,
+                          Manifest.permission.RECORD_AUDIO
+                      ) == PackageManager.PERMISSION_GRANTED
+                  }
+                  
+                  // Pulsing animation for active listening
+                  val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
+                  val alpha by infiniteTransition.animateFloat(
+                      initialValue = 0.3f,
+                      targetValue = 0.8f,
+                      animationSpec = infiniteRepeatable(
+                          animation = tween(1000, easing = FastOutSlowInEasing),
+                          repeatMode = RepeatMode.Reverse
+                      ),
+                      label = "alpha_animation"
+                  )
+                  
+                  Box(
+                      modifier = Modifier
+                          .size(48.dp)
+                          .background(
+                              color = if (isListening) {
+                                  MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+                              } else {
+                                  Color.Transparent
+                              },
+                              shape = CircleShape
+                          ),
+                      contentAlignment = Alignment.Center
+                  ) {
+                      IconButton(
+                          onClick = {
+                              if (isListening) {
+                                  // Stop listening
+                                  viewModel.speechManager.stopListening()
+                              } else {
+                                  // Check permission first
+                                  if (hasMicPermission) {
+                                      viewModel.speechManager.startListening()
+                                  } else {
+                                      // Request permission
+                                      micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                  }
+                              }
+                          }
+                      ) {
+                          Icon(
+                              if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
+                              "Voice Dictation",
+                              tint = if (isListening) {
+                                  MaterialTheme.colorScheme.onPrimary
+                              } else {
+                                  MaterialTheme.colorScheme.onSurface
+                              }
+                          )
+                      }
+                  }
 
-                 Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
-                 
-                 // Category Chip with Dropdown
-                 var showCategoryMenu by remember { mutableStateOf(false) }
-                 
-                 Box {
-                     FilterChip(
-                         selected = false,
-                         onClick = { showCategoryMenu = true },
-                         label = { Text(category.displayName) },
-                         leadingIcon = { 
-                             Icon(
-                                 com.flownote.ui.screens.home.getCategoryIcon(category), 
-                                 null, 
-                                 modifier = Modifier.size(dimensionResource(id = R.dimen.icon_size_small))
-                             ) 
-                         }, 
-                         colors = FilterChipDefaults.filterChipColors(
-                             containerColor = MaterialTheme.colorScheme.surface,
-                             labelColor = MaterialTheme.colorScheme.onSurface
-                         )
-                     )
+                  Spacer(modifier = Modifier.width(dimensionResource(id = R.dimen.spacing_xsmall)))
+                  
+                  // Category Chip with Dropdown
+                  var showCategoryMenu by remember { mutableStateOf(false) }
+                  
+                  Box {
+                      FilterChip(
+                          selected = false,
+                          onClick = { showCategoryMenu = true },
+                          label = { Text(category.displayName) },
+                          leadingIcon = { 
+                              Icon(
+                                  com.flownote.ui.screens.home.getCategoryIcon(category), 
+                                  null, 
+                                  modifier = Modifier.size(dimensionResource(id = R.dimen.icon_size_small))
+                              ) 
+                          }, 
+                          colors = FilterChipDefaults.filterChipColors(
+                              containerColor = MaterialTheme.colorScheme.surface,
+                              labelColor = MaterialTheme.colorScheme.onSurface
+                          )
+                      )
 
-                     DropdownMenu(
-                         expanded = showCategoryMenu,
-                         onDismissRequest = { showCategoryMenu = false }
-                     ) {
-                         Category.values().forEach { cat ->
-                             DropdownMenuItem(
-                                 text = { Text(cat.displayName) },
-                                 leadingIcon = {
-                                     Icon(
-                                         com.flownote.ui.screens.home.getCategoryIcon(cat),
-                                         contentDescription = null,
-                                         modifier = Modifier.size(dimensionResource(id = R.dimen.icon_size_small)),
-                                         tint = MaterialTheme.colorScheme.onSurface
-                                     )
-                                 },
-                                 trailingIcon = if (category == cat) {
-                                     { Icon(Icons.Default.Check, null) }
-                                 } else null,
-                                 onClick = {
-                                     viewModel.onCategoryChange(cat)
-                                     showCategoryMenu = false
-                                 }
-                             )
-                         }
-                     }
+                      DropdownMenu(
+                          expanded = showCategoryMenu,
+                          onDismissRequest = { showCategoryMenu = false }
+                      ) {
+                          Category.values().forEach { cat ->
+                              DropdownMenuItem(
+                                  text = { Text(cat.displayName) },
+                                  leadingIcon = {
+                                      Icon(
+                                          com.flownote.ui.screens.home.getCategoryIcon(cat),
+                                          contentDescription = null,
+                                          modifier = Modifier.size(dimensionResource(id = R.dimen.icon_size_small)),
+                                          tint = MaterialTheme.colorScheme.onSurface
+                                      )
+                                  },
+                                  trailingIcon = if (category == cat) {
+                                      { Icon(Icons.Default.Check, null) }
+                                  } else null,
+                                  onClick = {
+                                      viewModel.onCategoryChange(cat)
+                                      showCategoryMenu = false
+                                  }
+                              )
+                          }
+                      }
+                  }
                  }
-            }
+             }
         }
     ) { paddingValues ->
-        Column(
+        val windowSizeClass = rememberWindowSizeClass()
+        val maxWidth = windowSizeClass.getMaxContentWidth()
+        
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                // Remove verticalScroll here if using RichTextEditor inside?
-                // RichTextEditor handles its own scrolling usually.
-                // But we have Title + Editor.
-                // We should make the column scrollable or just let them split space.
-                // Note: RichTextEditor (MohamedRejeb) usually needs to be in a scrollable container OR handles it.
-                // I will use `imePadding` on Scaffold.
+                .padding(paddingValues),
+            contentAlignment = Alignment.TopCenter
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (maxWidth != Dp.Unspecified) {
+                            Modifier.widthIn(max = maxWidth)
+                        } else {
+                            Modifier
+                        }
+                    )
+            ) {
             // Find/Replace Bar (Conditional)
             AnimatedVisibility(visible = showFindReplace) {
                 FindReplaceBar(
@@ -672,8 +714,8 @@ fun NoteEditorScreen(
             if (showDeleteDialog) {
                 AlertDialog(
                     onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("Delete Note?") },
-                    text = { Text("This note will be permanently deleted. Did you want to delete this note?") },
+                    title = { Text(stringResource(R.string.delete_note_title)) },
+                    text = { Text(stringResource(R.string.delete_note_message)) },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -684,12 +726,12 @@ fun NoteEditorScreen(
                                 contentColor = MaterialTheme.colorScheme.error
                             )
                         ) {
-                            Text("Delete")
+                            Text(stringResource(R.string.confirm_delete))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showDeleteDialog = false }) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.action_cancel))
                         }
                     }
                 )
@@ -701,8 +743,8 @@ fun NoteEditorScreen(
                     .fillMaxWidth()
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {
-                        contentFocusRequester.requestFocus()
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = { contentFocusRequester.requestFocus() })
                     }
                     .padding(horizontal = 8.dp) // Minimal padding for wider content area
             ) {
@@ -715,24 +757,43 @@ fun NoteEditorScreen(
                         color = contentColor
                     ),
                     decorationBox = { innerTextField ->
-                        if (title.isEmpty()) {
-                            Text(
-                                text = "Title",
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                color = contentColor.copy(alpha = 0.4f)
-                            )
+                        Column {
+                            if (title.isEmpty()) {
+                                Text(
+                                    text = "Title",
+                                    style = MaterialTheme.typography.headlineMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = contentColor.copy(alpha = 0.4f)
+                                )
+                            }
+                            innerTextField()
                         }
-                        innerTextField()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp), // Minimal spacing
                     cursorBrush = SolidColor(contentColor)
                 )
+                
+                // Character counter for title
+                if (title.isNotEmpty()) {
+                    Text(
+                        text = "${title.length}/200",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (title.length > 180) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            contentColor.copy(alpha = 0.5f)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp, bottom = 4.dp)
+                    )
+                }
 
                 // Content Input (Rich Text) - flows naturally after title
+                // Use simple focus handling; avoid experimental relocation APIs to keep compatibility
                 RichTextEditor(
                     state = state,
                     placeholder = {
@@ -750,8 +811,10 @@ fun NoteEditorScreen(
                         cursorColor = contentColor
                     ),
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 200.dp)
                         .focusRequester(contentFocusRequester)
+                        .onFocusChanged { /* no-op: focus requested elsewhere when needed */ }
                 )
                 
                 // Highlight Overlay
@@ -766,6 +829,7 @@ fun NoteEditorScreen(
                 onRemoveTag = { tag -> viewModel.removeTag(tag) },
                 modifier = Modifier.fillMaxWidth()
             )
+            }
         }
     }
 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -32,6 +33,15 @@ class HomeViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     
+    // Debounced search query (300ms delay to reduce database queries)
+    private val debouncedSearchQuery = _searchQuery
+        .debounce(300) // Wait 300ms after user stops typing
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ""
+        )
+    
     // Selected category filter
     private val _selectedCategory = MutableStateFlow<Category?>(null)
     val selectedCategory: StateFlow<Category?> = _selectedCategory.asStateFlow()
@@ -40,15 +50,23 @@ class HomeViewModel @Inject constructor(
     private val _selectedTags = MutableStateFlow<List<String>>(emptyList())
     val selectedTags: StateFlow<List<String>> = _selectedTags.asStateFlow()
     
-    // All notes from repository (using optimized query)
+    // Error state
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+    
+    // All notes from repository (using optimized query with pagination)
     private val filteredNotesFlow = combine(
         selectedCategory,
-        searchQuery,
+        debouncedSearchQuery, // Use debounced query instead of immediate
         selectedTags
     ) { category, query, tags ->
         Triple(category, query, tags)
     }.flatMapLatest { (category, query, tags) ->
-        noteRepository.getFilteredNotes(category, query).map { notes ->
+        noteRepository.getFilteredNotes(
+            category = category,
+            query = query,
+            limit = 50 // Load 50 notes at a time for better performance
+        ).map { notes ->
             // Apply tag filtering (client-side for now)
             if (tags.isNotEmpty()) {
                 notes.filter { note -> note.tags.containsAll(tags) }
@@ -137,7 +155,11 @@ class HomeViewModel @Inject constructor(
      */
     fun deleteNote(note: Note) {
         viewModelScope.launch {
-            noteRepository.deleteNote(note)
+            try {
+                noteRepository.deleteNote(note)
+            } catch (e: Exception) {
+                _error.value = "Failed to delete note. Please try again."
+            }
         }
     }
     
@@ -146,8 +168,19 @@ class HomeViewModel @Inject constructor(
      */
     fun togglePin(noteId: String) {
         viewModelScope.launch {
-            noteRepository.togglePin(noteId)
+            try {
+                noteRepository.togglePin(noteId)
+            } catch (e: Exception) {
+                _error.value = "Failed to update note. Please try again."
+            }
         }
+    }
+    
+    /**
+     * Clear error message
+     */
+    fun clearError() {
+        _error.value = null
     }
     
     /**
@@ -167,5 +200,7 @@ class HomeViewModel @Inject constructor(
 data class HomeUiState(
     val pinnedNotes: List<Note> = emptyList(),
     val otherNotes: List<Note> = emptyList(),
-    val allNotes: List<Note> = emptyList()
+    val allNotes: List<Note> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
 )

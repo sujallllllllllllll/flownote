@@ -53,26 +53,6 @@ fun NavGraph(
             )
         }
         
-        // Categories screen - REMOVED (functionality merged into Home screen)
-        /*
-        composable(
-            route = Screen.Categories.route,
-            enterTransition = { fadeIn() },
-            exitTransition = { fadeOut() }
-        ) {
-            com.flownote.ui.screens.categories.CategoriesScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onCategoryClick = { category ->
-                    // Navigate to home and set category filter
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
-                    }
-                    // TODO: Pass category to HomeScreen via savedStateHandle or ViewModel
-                }
-            )
-        }
-        */
-          
         // Note editor screen
         composable(
             route = Screen.NoteEditor.route,
@@ -99,46 +79,29 @@ fun NavGraph(
         // Upcoming Features screen
         composable(
             route = Screen.UpcomingFeatures.route,
-            exitTransition = { fadeOut() },
-            popEnterTransition = { fadeIn() }
+            enterTransition = {
+                slideInHorizontally(initialOffsetX = { it }) + fadeIn()
+            },
+            popExitTransition = {
+                slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+            }
         ) {
-            com.flownote.ui.screens.upcomingfeatures.UpcomingFeaturesScreen(
+            com.flownote.ui.screens.info.UpcomingFeaturesScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
         
-        // Search screen
+        // Help screen
         composable(
-            route = Screen.Search.route,
-            enterTransition = { fadeIn() },
-            exitTransition = { fadeOut() }
+            route = Screen.Help.route,
+            enterTransition = {
+                slideInHorizontally(initialOffsetX = { it }) + fadeIn()
+            },
+            popExitTransition = {
+                slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+            }
         ) {
-            com.flownote.ui.screens.search.SearchScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNoteClick = { noteId ->
-                    navController.navigate(Screen.NoteEditor.createRoute(noteId))
-                }
-            )
-        }
-        
-        // HIDDEN FOR MVP - Template List Screen
-        // Uncomment to enable templates
-        /*
-        composable(Screen.TemplateList.route) {
-            TemplateListScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onTemplateSelect = { templateId ->
-                    navController.navigate(Screen.NoteEditor.createRoute("new?template=$templateId")) {
-                        popUpTo(Screen.Home.route)
-                    }
-                }
-            )
-        }
-        */
-        
-        // Upcoming Features
-        composable(Screen.UpcomingFeatures.route) {
-            com.flownote.ui.screens.info.UpcomingFeaturesScreen(
+            com.flownote.ui.screens.help.HelpScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -156,7 +119,8 @@ fun NavGraph(
             com.flownote.ui.screens.settings.SettingsScreen(
                 onNavigateToContactUs = { navController.navigate(Screen.ContactUs.route) },
                 onNavigateToPrivacyPolicy = { navController.navigate(Screen.PrivacyPolicy.route) },
-                onNavigateToUpcomingFeatures = { navController.navigate(Screen.UpcomingFeatures.route) }
+                onNavigateToUpcomingFeatures = { navController.navigate(Screen.UpcomingFeatures.route) },
+                onNavigateToHelp = { navController.navigate(Screen.Help.route) }
             )
         }
         

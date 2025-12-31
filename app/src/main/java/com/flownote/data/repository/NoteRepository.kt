@@ -57,14 +57,17 @@ class NoteRepository @Inject constructor(
     
     /**
      * Get filtered notes (optimized database query)
+     * With pagination support
      */
     fun getFilteredNotes(
         category: Category?,
-        query: String
+        query: String,
+        limit: Int = 100
     ): Flow<List<Note>> {
         return noteDao.getFilteredNotes(
             category = category?.displayName,
-            query = query
+            query = query,
+            limit = limit
         ).map { entities ->
             entities.map { it.toNote() }
         }

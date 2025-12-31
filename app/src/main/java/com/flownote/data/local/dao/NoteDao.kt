@@ -39,6 +39,7 @@ interface NoteDao {
     
     /**
      * Get filtered notes (optimized query combining all filters)
+     * With pagination support via LIMIT
      */
     @Query("""
         SELECT * FROM notes 
@@ -46,10 +47,12 @@ interface NoteDao {
         AND (:query = '' OR LOWER(title) LIKE '%' || LOWER(:query) || '%' OR LOWER(content) LIKE '%' || LOWER(:query) || '%' OR LOWER(tags) LIKE '%' || LOWER(:query) || '%')
         AND (title != '' OR content != '' OR hasAudio = 1)
         ORDER BY isPinned DESC, updatedAt DESC
+        LIMIT :limit
     """)
     fun getFilteredNotes(
         category: String?,
-        query: String
+        query: String,
+        limit: Int = 100
     ): Flow<List<NoteEntity>>
     
     /**

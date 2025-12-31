@@ -1,8 +1,14 @@
 package com.flownote.ui.screens.home
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -12,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,13 +31,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.content.Intent
+import com.flownote.R
 import com.flownote.data.model.Category
 import com.flownote.data.model.Note
+import com.flownote.util.rememberWindowSizeClass
+import com.flownote.util.scaledSp
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onNoteClick: (String) -> Unit,
@@ -41,13 +56,32 @@ fun HomeScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedTags by viewModel.selectedTags.collectAsState()
     val availableTags by viewModel.availableTags.collectAsState()
+    val error by viewModel.error.collectAsState()
     
     val allNotes = uiState.allNotes
     val pinnedNotes = uiState.pinnedNotes
     val otherNotes = uiState.otherNotes
+    
+    // Snackbar host state
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Show error snackbar when error occurs
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
+    }
+    
+    // Window size for adaptive layouts
+    val windowSizeClass = rememberWindowSizeClass()
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -74,10 +108,10 @@ fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "FlowNotes",
+                        text = stringResource(R.string.app_title),
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 24.sp
+                            fontSize = windowSizeClass.scaledSp(24)
                         ),
                         color = MaterialTheme.colorScheme.onBackground
                     )
@@ -94,14 +128,14 @@ fun HomeScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     placeholder = {
                         Text(
-                            "Search notes...",
+                            stringResource(R.string.search_notes_hint),
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     },
                     leadingIcon = {
                         Icon(
                             Icons.Default.Search,
-                            contentDescription = "Search",
+                            contentDescription = stringResource(R.string.cd_search),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     },
@@ -110,7 +144,7 @@ fun HomeScreen(
                             IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
                                 Icon(
                                     Icons.Default.Close,
-                                    contentDescription = "Clear",
+                                    contentDescription = stringResource(R.string.cd_clear_search),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -140,7 +174,7 @@ fun HomeScreen(
                             onClick = { viewModel.onCategorySelected(null) },
                             label = {
                                 Text(
-                                    "All",
+                                    stringResource(R.string.filter_all),
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = if (selectedCategory == null) FontWeight.SemiBold else FontWeight.Normal
                                     )
@@ -164,18 +198,53 @@ fun HomeScreen(
                         )
                     }
                     
-                    // Category chips
+                    // Category chips with note counts
                     items(Category.values().toList()) { category ->
+                        // Calculate note count for this category
+                        val categoryNoteCount = remember(allNotes, category) {
+                            allNotes.count { it.category == category }
+                        }
+                        
                         FilterChip(
                             selected = selectedCategory == category,
                             onClick = { viewModel.onCategorySelected(category) },
                             label = {
-                                Text(
-                                    category.displayName,
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = if (selectedCategory == category) FontWeight.SemiBold else FontWeight.Normal
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        category.displayName,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = if (selectedCategory == category) FontWeight.SemiBold else FontWeight.Normal
+                                        )
                                     )
-                                )
+                                    // Note count badge
+                                    if (categoryNoteCount > 0) {
+                                        Surface(
+                                            color = if (selectedCategory == category) {
+                                                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
+                                            } else {
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            },
+                                            shape = CircleShape
+                                        ) {
+                                            Text(
+                                                text = categoryNoteCount.toString(),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = if (selectedCategory == category) {
+                                                    MaterialTheme.colorScheme.onPrimary
+                                                } else {
+                                                    MaterialTheme.colorScheme.primary
+                                                },
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             },
                             leadingIcon = {
                                 Icon(
@@ -188,10 +257,12 @@ fun HomeScreen(
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                 labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
-                            border = null
+                            border = if (selectedCategory == category) {
+                                BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                            } else null
                         )
                     }
                 }
@@ -234,7 +305,7 @@ fun HomeScreen(
             if (pinnedNotes.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Pinned",
+                        text = stringResource(R.string.section_pinned),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
@@ -250,7 +321,8 @@ fun HomeScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(pinnedNotes.take(3)) { note ->
+                        // Show all pinned notes (horizontal scroll)
+                        items(pinnedNotes) { note ->
                             PinnedNoteCard(note, onNoteClick)
                         }
                     }
@@ -270,132 +342,376 @@ fun HomeScreen(
                 )
             }
 
-            // Note list
-            items(otherNotes) { note ->
-                NoteListItem(note, onNoteClick)
+            // Note list with swipe-to-delete and animations
+            items(otherNotes, key = { it.id }) { note ->
+                var showDeleteDialog by remember { mutableStateOf(false) }
+                val haptic = LocalHapticFeedback.current
+                
+                // Calculate stagger delay based on index (max 500ms)
+                val noteIndex = remember(otherNotes) { otherNotes.indexOf(note) }
+                val animationDelay = remember(noteIndex) { (noteIndex * 50).coerceAtMost(500) }
+                
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInVertically(
+                        initialOffsetY = { it / 4 },
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            delayMillis = animationDelay,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            delayMillis = animationDelay
+                        )
+                    ),
+                    exit = slideOutVertically(
+                        targetOffsetY = { -it / 4 },
+                        animationSpec = tween(200)
+                    ) + fadeOut(animationSpec = tween(200))
+                ) {
+                    SwipeToDismissBox(
+                        state = rememberSwipeToDismissBoxState(
+                            confirmValueChange = {
+                                if (it == SwipeToDismissBoxValue.EndToStart) {
+                                    // Haptic feedback on swipe threshold
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showDeleteDialog = true
+                                    false // Don't dismiss yet, wait for confirmation
+                                } else {
+                                    false
+                                }
+                            }
+                        ),
+                        backgroundContent = {
+                            // Empty background - no visual feedback needed
+                            // Haptic feedback and dialog provide sufficient UX
+                            Box(modifier = Modifier.fillMaxSize())
+                        },
+                        enableDismissFromStartToEnd = false
+                    ) {
+                        NoteListItem(note, onNoteClick)
+                    }
+                }
+                
+                // Delete confirmation dialog
+                if (showDeleteDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteDialog = false },
+                        title = { Text(stringResource(R.string.delete_note_title)) },
+                        text = { Text(stringResource(R.string.delete_note_message)) },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    showDeleteDialog = false
+                                    viewModel.deleteNote(note)
+                                },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text(stringResource(R.string.confirm_delete))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeleteDialog = false }) {
+                                Text(stringResource(R.string.action_cancel))
+                            }
+                        }
+                    )
+                }
             }
 
-            // Empty state
+            // Contextual Empty state
             if (allNotes.isEmpty()) {
                 item {
-                    EmptyStateSimple()
+                    when {
+                        // Search active but no results
+                        searchQuery.isNotEmpty() -> EmptyStateContextual(
+                            title = stringResource(R.string.empty_search_title),
+                            subtitle = stringResource(R.string.empty_search_subtitle)
+                        )
+                        // Category filter active but no notes
+                        selectedCategory != null -> EmptyStateContextual(
+                            title = stringResource(R.string.empty_category_title),
+                            subtitle = stringResource(R.string.empty_category_subtitle)
+                        )
+                        // Tag filter active but no notes
+                        selectedTags.isNotEmpty() -> EmptyStateContextual(
+                            title = stringResource(R.string.empty_tags_title),
+                            subtitle = stringResource(R.string.empty_tags_subtitle)
+                        )
+                        // No notes at all
+                        else -> EmptyStateSimple()
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PinnedNoteCard(note: Note, onNoteClick: (String) -> Unit) {
+fun PinnedNoteCard(
+    note: Note,
+    onNoteClick: (String) -> Unit,
+    viewModel: HomeViewModel = hiltViewModel()
+) {
+    val isDarkMode = isSystemInDarkTheme()
+    var showMenu by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    
+    // Optimized gradients for both light and dark modes
     val gradient = when (note.category) {
         Category.GENERAL -> Brush.linearGradient(
-            colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+            colors = if (isDarkMode) {
+                listOf(Color(0xFF4A5F9A), Color(0xFF5A3B72)) // Darker, muted
+            } else {
+                listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+            }
         )
         Category.MEETINGS -> Brush.linearGradient(
-            colors = listOf(Color(0xFF4A90E2), Color(0xFF357ABD))
+            colors = if (isDarkMode) {
+                listOf(Color(0xFF2E5F8D), Color(0xFF1F4A6D)) // Darker blue
+            } else {
+                listOf(Color(0xFF4A90E2), Color(0xFF357ABD))
+            }
         )
         Category.TASKS -> Brush.linearGradient(
-            colors = listOf(Color(0xFF11998E), Color(0xFF38EF7D))
+            colors = if (isDarkMode) {
+                listOf(Color(0xFF0A6B5F), Color(0xFF1F8A6D)) // Darker green
+            } else {
+                listOf(Color(0xFF11998E), Color(0xFF38EF7D))
+            }
         )
         Category.RECIPES -> Brush.linearGradient(
-            colors = listOf(Color(0xFFFF9A8B), Color(0xFFFF6A88))
+            colors = if (isDarkMode) {
+                listOf(Color(0xFFB85F54), Color(0xFFB84458)) // Darker pink/red
+            } else {
+                listOf(Color(0xFFFF9A8B), Color(0xFFFF6A88))
+            }
         )
         Category.CODE -> Brush.linearGradient(
-            colors = listOf(Color(0xFF8E2DE2), Color(0xFF4A00E0))
+            colors = if (isDarkMode) {
+                listOf(Color(0xFF5A1A9A), Color(0xFF3200A0)) // Darker purple
+            } else {
+                listOf(Color(0xFF8E2DE2), Color(0xFF4A00E0))
+            }
         )
         Category.IDEAS -> Brush.linearGradient(
-            colors = listOf(Color(0xFFFBD786), Color(0xFFF7797D))
+            colors = if (isDarkMode) {
+                listOf(Color(0xFFB8945F), Color(0xFFB85454)) // Darker gold/pink
+            } else {
+                listOf(Color(0xFFFBD786), Color(0xFFF7797D))
+            }
         )
         Category.STUDY -> Brush.linearGradient(
-            colors = listOf(Color(0xFF6A11CB), Color(0xFF2575FC))
+            colors = if (isDarkMode) {
+                listOf(Color(0xFF4A0A8B), Color(0xFF1A4AAC)) // Darker blue/purple
+            } else {
+                listOf(Color(0xFF6A11CB), Color(0xFF2575FC))
+            }
         )
     }
 
-    Card(
-        modifier = Modifier
-            .width(140.dp)
-            .height(120.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 3.dp,
-            pressedElevation = 5.dp
-        ),
-        onClick = { onNoteClick(note.id) }
-    ) {
-        Box(
+    Box(modifier = Modifier.wrapContentSize()) {
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .background(gradient)
-                .padding(14.dp)
+                .width(140.dp)
+                .height(120.dp)
+                .combinedClickable(
+                    onClick = { onNoteClick(note.id) },
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showMenu = true
+                    }
+                ),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 3.dp,
+                pressedElevation = 5.dp
+            )
         ) {
-            // Pin icon with subtle background
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
+                    .fillMaxSize()
+                    .background(gradient)
+                    .padding(14.dp)
             ) {
-                Icon(
-                    Icons.Default.PushPin,
-                    contentDescription = "Pinned",
-                    tint = Color.White,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
+                // Pin icon with subtle background
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.PushPin,
+                        contentDescription = "Pinned",
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
 
-            // Content
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-            ) {
-                Text(
-                    text = note.title.ifBlank { "Untitled" },
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    ),
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = note.getPlainTextContent(),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp
-                    ),
-                    color = Color.White.copy(alpha = 0.85f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                // Content
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        text = note.title.ifBlank { stringResource(R.string.untitled_note) },
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        ),
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = note.getPlainTextContent(),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        ),
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
+        }
+        
+        // Context menu for long press
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false }
+        ) {
+            // Pin/Unpin option
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(if (note.isPinned) "Unpin Note" else "Pin Note")
+                    }
+                },
+                onClick = {
+                    viewModel.togglePin(note.id)
+                    showMenu = false
+                }
+            )
+            
+            // Set Reminder option
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text("Set Reminder")
+                    }
+                },
+                onClick = {
+                    // Navigate to note editor to set reminder
+                    onNoteClick(note.id)
+                    showMenu = false
+                }
+            )
+            
+            // Share option
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text("Share Note")
+                    }
+                },
+                onClick = {
+                    // Share note using Android share intent
+                    val shareText = buildString {
+                        append(note.title)
+                        append("\n\n")
+                        append(note.getPlainTextContent())
+                        if (note.tags.isNotEmpty()) {
+                            append("\n\nTags: ")
+                            append(note.tags.joinToString(", "))
+                        }
+                    }
+                    
+                    val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, shareText)
+                        type = "text/plain"
+                    }
+                    
+                    val shareIntent = Intent.createChooser(sendIntent, "Share Note")
+                    context.startActivity(shareIntent)
+                    showMenu = false
+                }
+            )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun NoteListItem(note: Note, onNoteClick: (String) -> Unit) {
+fun NoteListItem(
+    note: Note,
+    onNoteClick: (String) -> Unit,
+    viewModel: HomeViewModel = hiltViewModel()
+) {
     val categoryColor = getCategoryColor(note.category)
+    var showMenu by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp,
-            pressedElevation = 4.dp
-        ),
-        onClick = { onNoteClick(note.id) }
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .combinedClickable(
+                    onClick = { onNoteClick(note.id) },
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showMenu = true
+                    }
+                ),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 2.dp,
+                pressedElevation = 4.dp
+            )
+        ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // Subtle gradient overlay
             Box(
@@ -430,7 +746,7 @@ fun NoteListItem(note: Note, onNoteClick: (String) -> Unit) {
                 ) {
                     // Title
                     Text(
-                        text = note.title.ifBlank { "Untitled" },
+                        text = note.title.ifBlank { stringResource(R.string.untitled_note) },
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
@@ -511,7 +827,32 @@ fun NoteListItem(note: Note, onNoteClick: (String) -> Unit) {
                         )
                     }
                     
-                    Spacer(modifier = Modifier.height(40.dp))
+                    // Reminder icon if set
+                    if (note.reminderTime != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        val isToday = remember(note.reminderTime) {
+                            val today = java.util.Calendar.getInstance()
+                            val reminderCal = java.util.Calendar.getInstance().apply {
+                                time = note.reminderTime
+                            }
+                            today.get(java.util.Calendar.YEAR) == reminderCal.get(java.util.Calendar.YEAR) &&
+                            today.get(java.util.Calendar.DAY_OF_YEAR) == reminderCal.get(java.util.Calendar.DAY_OF_YEAR)
+                        }
+                        
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Has reminder",
+                            tint = if (isToday) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            },
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.weight(1f))
                     
                     // Timestamp in bottom right
                     Text(
@@ -525,7 +866,96 @@ fun NoteListItem(note: Note, onNoteClick: (String) -> Unit) {
                 }
             }
         }
+        
+        // Context menu for long press
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false }
+        ) {
+            // Pin/Unpin option
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(if (note.isPinned) "Unpin Note" else "Pin Note")
+                    }
+                },
+                onClick = {
+                    viewModel.togglePin(note.id)
+                    showMenu = false
+                }
+            )
+            
+            // Set Reminder option
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text("Set Reminder")
+                    }
+                },
+                onClick = {
+                    // Navigate to note editor to set reminder
+                    onNoteClick(note.id)
+                    showMenu = false
+                }
+            )
+            
+            // Share option
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text("Share Note")
+                    }
+                },
+                onClick = {
+                    // Share note using Android share intent
+                    val shareText = buildString {
+                        append(note.title)
+                        append("\n\n")
+                        append(note.getPlainTextContent())
+                        if (note.tags.isNotEmpty()) {
+                            append("\n\nTags: ")
+                            append(note.tags.joinToString(", "))
+                        }
+                    }
+                    
+                    val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, shareText)
+                        type = "text/plain"
+                    }
+                    
+                    val shareIntent = Intent.createChooser(sendIntent, "Share Note")
+                    context.startActivity(shareIntent)
+                    showMenu = false
+                }
+            )
+        }
     }
+}
 }
 
 @Composable
@@ -555,7 +985,7 @@ fun EmptyStateSimple() {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "No notes yet",
+                stringResource(R.string.empty_notes_title),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold
                 ),
@@ -563,7 +993,7 @@ fun EmptyStateSimple() {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "Tap the + button to create your first note",
+                stringResource(R.string.empty_notes_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
@@ -596,6 +1026,8 @@ fun getCategoryIcon(category: Category): ImageVector {
     }
 }
 
+
+@Composable
 fun getRelativeTime(date: Date): String {
     val now = Date()
     val diff = now.time - date.time
@@ -605,10 +1037,44 @@ fun getRelativeTime(date: Date): String {
     val days = hours / 24
 
     return when {
-        minutes < 1 -> "Just now"
-        minutes < 60 -> "${minutes}m ago"
-        hours < 24 -> "${hours}h ago"
-        days < 7 -> "${days}d ago"
+        minutes < 1 -> stringResource(R.string.time_just_now)
+        minutes < 60 -> stringResource(R.string.time_minutes_ago, minutes)
+        hours < 24 -> stringResource(R.string.time_hours_ago, hours)
+        days < 7 -> stringResource(R.string.time_days_ago, days)
         else -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(date)
+    }
+}
+
+@Composable
+fun EmptyStateContextual(
+    title: String,
+    subtitle: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 64.dp, horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            Icons.Default.Search,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
     }
 }

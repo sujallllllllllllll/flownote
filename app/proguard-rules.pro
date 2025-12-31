@@ -85,7 +85,8 @@
 -renamesourcefileattribute SourceFile
 
 # ========================
-# Remove Debug Logging
+# Remove Debug Logging Only
+# Keep error and warning logs for production debugging
 # ========================
 -assumenosideeffects class android.util.Log {
     public static *** d(...);

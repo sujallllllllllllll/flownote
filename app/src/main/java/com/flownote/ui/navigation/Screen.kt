@@ -5,14 +5,12 @@ package com.flownote.ui.navigation
  */
 sealed class Screen(val route: String) {
     object Home : Screen("home")
-    object Categories : Screen("categories")
     object Settings : Screen("settings")
     object NoteEditor : Screen("note_editor/{noteId}") {
         fun createRoute(noteId: String) = "note_editor/$noteId"
     }
-    object TemplateList : Screen("template_list")
     object ContactUs : Screen("contact_us")
     object PrivacyPolicy : Screen("privacy_policy")
     object UpcomingFeatures : Screen("upcoming_features")
-    object Search : Screen("search")
+    object Help : Screen("help")
 }

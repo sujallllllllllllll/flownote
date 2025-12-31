@@ -1,130 +1,198 @@
-# FlowNote - Native Android Note-Taking App
+# FlowNotes 📝
 
-**Capture thoughts faster than you think**
+A simple, offline-first note-taking app for Android built with Jetpack Compose, designed for privacy and ease of use.
 
-FlowNote is a native Android app built with Kotlin and Jetpack Compose, focused on ultra-fast note capture and intelligent organization.
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-blue.svg)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Jetpack%20Compose-1.5.0-green.svg)](https://developer.android.com/jetpack/compose)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Features (MVP)
+## ✨ Features
 
-### Sprint 1 - Core Foundation ✅
-- ✅ Native Android with Kotlin + Jetpack Compose
-- ✅ Room database (100% offline, local storage)
-- ✅ Material Design 3 with dark mode support
-- ✅ Basic note CRUD operations
-- 🚧 Note list view with empty state
+### Core Functionality
+- **📝 Rich Text Editing**: Format your notes with bold, italic, underline, and more
+- **📌 Pin Notes**: Keep important notes at the top
+- **🔍 Smart Search**: Find notes quickly with debounced search (300ms)
+- **🏷️ Tags & Categories**: Organize notes with tags and predefined categories
+- **🔔 Reminders**: Set notifications for important notes
+- **🎨 Custom Colors**: Personalize notes with different colors
+- **💾 Auto-Save**: Changes saved automatically every 500ms
 
-### Sprint 2 - Essential Features (Upcoming)
-- Search functionality
-- Manual categories/tags
-- Note pinning
-- Swipe to delete
-- Settings screen
+### User Experience
+- **📱 Offline-First**: All data stored locally, no internet required
+- **🌓 Dark Mode**: Full support for light and dark themes
+- **📲 Tablet Support**: Responsive layouts for tablets (centered content, adaptive fonts)
+- **↔️ Swipe to Delete**: Quick gesture-based deletion with confirmation
+- **🔒 Privacy Focused**: No cloud sync, no data collection, no tracking
 
-### Sprint 3 - Intelligence Layer (Upcoming)
-- Voice recording
-- Auto-categorization
-- Fuzzy search
-- Temporary notes system
+### Advanced Features
+- **🎯 Input Validation**: Title max 200 chars, tag validation
+- **⚡ Performance Optimized**: Pagination (50 notes), debounced search
+- **🛡️ Error Handling**: Comprehensive error handling with user feedback
+- **📊 Contextual Empty States**: Helpful messages based on user context
 
-### Sprint 4 - Polish (Upcoming)
-- Animations and transitions
-- Home screen widget
-- Error handling
-- Performance optimization
+## 🏗️ Architecture
 
-## Tech Stack
-
-- **Language**: Kotlin 1.9.22
-- **UI**: Jetpack Compose with Material Design 3
-- **Database**: Room (SQLite)
-- **DI**: Hilt
-- **Architecture**: MVVM + Clean Architecture
-- **Min SDK**: 26 (Android 8.0)
-- **Target SDK**: 34 (Android 14)
-
-## Project Structure
+FlowNotes follows **Clean Architecture** principles with MVVM pattern:
 
 ```
-app/src/main/java/com/flownote/
-├── data/                    # Data layer
-│   ├── local/              # Local database
-│   │   ├── dao/           # Data Access Objects
-│   │   ├── database/      # Room database
-│   │   └── entity/        # Database entities
-│   ├── model/             # Domain models
-│   └── repository/        # Repositories
-├── di/                     # Dependency injection
-├── ui/                     # Presentation layer
-│   ├── navigation/        # Navigation
-│   ├── screens/           # Screens
-│   └── theme/             # Material Design theme
-└── util/                   # Utilities
+app/
+├── data/
+│   ├── local/          # Room database, DAOs, entities
+│   ├── model/          # Domain models
+│   └── repository/     # Repository pattern
+├── di/                 # Hilt dependency injection
+├── ui/
+│   ├── components/     # Reusable UI components
+│   ├── navigation/     # Navigation setup
+│   ├── screens/        # Feature screens (Home, Editor, Settings)
+│   └── theme/          # Material Design 3 theming
+└── util/               # Utilities (notifications, window size)
 ```
 
-## Getting Started
+### Tech Stack
+
+**Core:**
+- Kotlin 1.9.0
+- Jetpack Compose (Material Design 3)
+- Coroutines & Flow
+
+**Architecture:**
+- MVVM Pattern
+- Clean Architecture
+- Repository Pattern
+- Hilt (Dependency Injection)
+
+**Data:**
+- Room Database
+- DataStore (Preferences)
+- Gson (JSON serialization)
+
+**UI:**
+- Material Design 3
+- Compose Navigation
+- Rich Text Editor (MohamedRejeb)
+
+**Other:**
+- AlarmManager (Reminders)
+- WorkManager (Background tasks)
+
+## 🚀 Getting Started
 
 ### Prerequisites
-
 - Android Studio Hedgehog (2023.1.1) or later
-- JDK 17
+- JDK 17 or later
 - Android SDK 34
-- Gradle 8.2+
+- Minimum SDK: 26 (Android 8.0)
 
-### Build & Run
+### Installation
 
-1. Clone the repository
-2. Open in Android Studio
-3. Sync Gradle files
-4. Run on emulator or physical device (Android 8.0+)
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/flownotes.git
+   cd flownotes
+   ```
+
+2. **Open in Android Studio**
+   - Open Android Studio
+   - Select "Open an Existing Project"
+   - Navigate to the cloned directory
+
+3. **Sync Gradle**
+   - Android Studio will automatically sync Gradle
+   - Wait for dependencies to download
+
+4. **Run the app**
+   - Connect an Android device or start an emulator
+   - Click the "Run" button or press `Shift + F10`
+
+### Build Variants
+
+- **Debug**: Development build with debugging enabled
+- **Release**: Production build with ProGuard/R8 optimization
 
 ```bash
 # Build debug APK
 ./gradlew assembleDebug
 
-# Install on connected device
-./gradlew installDebug
-
-# Run tests
-./gradlew test
+# Build release APK
+./gradlew assembleRelease
 ```
 
-## Key Features
+## 📱 Screenshots
 
-### 100% Offline-First
-- All data stored locally on device
-- No backend server required
-- No authentication needed
-- Works in airplane mode
-- Privacy-focused (data never leaves device)
+*Coming soon - Add screenshots of your app here*
 
-### Fast & Lightweight
-- App launch: < 2 seconds
-- Note creation: < 200ms
-- Smooth 60fps scrolling
-- Target app size: < 25 MB
+## 🎯 Roadmap
 
-### Auto-Categorization (Coming in Sprint 3)
-- Meetings: Time indicators + meeting keywords
-- Tasks: Action verbs + list format
-- Recipes: Recipe keywords + ingredients
-- Code Snippets: Code syntax detection
-- Ideas: Questions + future tense
-- Study Notes: Academic keywords
-- General: Default fallback
+### v0.1.0 (Current)
+- ✅ Core note-taking functionality
+- ✅ Rich text editing
+- ✅ Categories and tags
+- ✅ Search and filters
+- ✅ Reminders
+- ✅ Tablet support
+- ✅ Error handling
+- ✅ Help system
 
-## Development Timeline
+### v0.2.0 (Planned)
+- [ ] Multi-column grid for tablets
+- [ ] Master-detail layout for tablets
+- [ ] Backup/restore improvements
+- [ ] Note templates
+- [ ] Export to PDF/Markdown
+- [ ] Widget support
+- [ ] Checklist improvements
 
-| Sprint | Duration | Status |
-|--------|----------|--------|
-| Sprint 1 | Weeks 1-2 | 🚧 In Progress |
-| Sprint 2 | Weeks 3-4 | ⏳ Planned |
-| Sprint 3 | Weeks 5-6 | ⏳ Planned |
-| Sprint 4 | Week 7 | ⏳ Planned |
+### v1.0.0 (Future)
+- [ ] Note sharing
+- [ ] Attachments support
+- [ ] Voice notes
+- [ ] Handwriting support
+- [ ] Advanced search filters
 
-## License
+## 🤝 Contributing
 
-This project is currently in development.
+Contributions are welcome! Please follow these guidelines:
 
-## Contact
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/AmazingFeature`)
+3. **Commit your changes** (`git commit -m 'Add some AmazingFeature'`)
+4. **Push to the branch** (`git push origin feature/AmazingFeature`)
+5. **Open a Pull Request**
 
-For questions or feedback, please open an issue on GitHub.
+### Code Style
+- Follow [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
+- Use meaningful variable and function names
+- Add comments for complex logic
+- Write unit tests for new features
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [MohamedRejeb](https://github.com/MohamedRejeb) for the Rich Text Editor library
+- [Material Design 3](https://m3.material.io/) for design guidelines
+- [Jetpack Compose](https://developer.android.com/jetpack/compose) team
+
+## 📞 Contact
+
+- **Website**: [flownotes-presencematic.netlify.app](https://flownotes-presencematic.netlify.app)
+- **Email**: [Contact through website](https://flownotes-presencematic.netlify.app/contact)
+
+## 🔒 Privacy
+
+FlowNotes is **100% offline** and **privacy-focused**:
+- ✅ No internet connection required
+- ✅ No cloud sync
+- ✅ No data collection
+- ✅ No analytics
+- ✅ No ads
+- ✅ All data stored locally on your device
+
+Your notes are **yours** and **yours alone**.
+
+---
+
+**Made with ❤️ by the FlowNotes Team**

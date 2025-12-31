@@ -31,103 +31,148 @@ fun FindReplaceBar(
     currentMatchIndex: Int,
     contentColor: Color
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(8.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shadowElevation = 4.dp
     ) {
-        // Find Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
         ) {
-            TextField(
-                value = findQuery,
-                onValueChange = onFindQueryChange,
-                placeholder = { Text("Find...", color = contentColor.copy(alpha = 0.5f)) },
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp)),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = contentColor
-                ),
-                singleLine = true,
-                trailingIcon = {
-                    if (findQuery.isNotEmpty()) {
-                        if (matchCount > 0) {
-                            Text(
-                                text = "$currentMatchIndex/$matchCount",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = contentColor.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                        } else {
-                            Text(
-                                text = "No results",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                        }
-                    }
-                }
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(onClick = onFindPrevious) {
-                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous", tint = contentColor)
-            }
-            IconButton(onClick = onFindNext) {
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next", tint = contentColor)
-            }
-            IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "Close", tint = contentColor)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Replace Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextField(
-                value = replaceQuery,
-                onValueChange = onReplaceQueryChange,
-                placeholder = { Text("Replace with...", color = contentColor.copy(alpha = 0.5f)) },
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp)),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = contentColor
-                ),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(
-                onClick = onReplace,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            // Find Row with prominent match counter
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Replace")
+                TextField(
+                    value = findQuery,
+                    onValueChange = onFindQueryChange,
+                    placeholder = { Text("Find...") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // Prominent match counter
+                if (findQuery.isNotEmpty()) {
+                    Surface(
+                        color = if (matchCount > 0) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = if (matchCount > 0) "$currentMatchIndex/$matchCount" else "0",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = if (matchCount > 0) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+
+                IconButton(
+                    onClick = onFindPrevious,
+                    enabled = matchCount > 0
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Previous",
+                        tint = if (matchCount > 0) contentColor else contentColor.copy(alpha = 0.3f)
+                    )
+                }
+                IconButton(
+                    onClick = onFindNext,
+                    enabled = matchCount > 0
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Next",
+                        tint = if (matchCount > 0) contentColor else contentColor.copy(alpha = 0.3f)
+                    )
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = contentColor)
+                }
             }
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Divider for visual separation
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
 
-            TextButton(onClick = onReplaceAll) {
-                Text("All", color = contentColor)
+            // Replace Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextField(
+                    value = replaceQuery,
+                    onValueChange = onReplaceQueryChange,
+                    placeholder = { Text("Replace with...") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(
+                    onClick = onReplace,
+                    enabled = matchCount > 0,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("Replace")
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                TextButton(
+                    onClick = onReplaceAll,
+                    enabled = matchCount > 0
+                ) {
+                    Text(
+                        "All",
+                        color = if (matchCount > 0) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            contentColor.copy(alpha = 0.3f)
+                        }
+                    )
+                }
             }
         }
     }

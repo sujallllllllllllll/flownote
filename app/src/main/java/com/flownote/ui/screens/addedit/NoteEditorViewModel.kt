@@ -96,6 +96,10 @@ class NoteEditorViewModel @Inject constructor(
     private val _deleteAfter = MutableStateFlow<Date?>(null)
     val deleteAfter: StateFlow<Date?> = _deleteAfter.asStateFlow()
     
+    // Error state
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+    
     val speechState = speechManager.speechState
     
     private var currentNote: Note? = null
@@ -122,30 +126,41 @@ class NoteEditorViewModel @Inject constructor(
     
     private fun loadNote(id: String) {
         viewModelScope.launch {
-            _isLoading.value = true
-            val note = noteRepository.getNoteById(id)
-            note?.let {
-                currentNote = it
-                _title.value = it.title
-                _content.value = it.content
-                _category.value = it.category
-                _noteColor.value = it.color
-                // Removed duplicate _noteColor.value assignment line here if it existed
-                _isPinned.value = it.isPinned
-                _reminderTime.value = it.reminderTime
-                _hasAudio.value = it.hasAudio
-                _audioPath.value = it.audioPath
-                _tags.value = it.tags
-                _isTemporary.value = it.isTemporary
-                _deleteAfter.value = it.deleteAfter
-                _lastEdited.value = com.flownote.util.DateUtils.formatDate(it.updatedAt)
+            try {
+                _isLoading.value = true
+                val note = noteRepository.getNoteById(id)
+                note?.let {
+                    currentNote = it
+                    _title.value = it.title
+                    _content.value = it.content
+                    _category.value = it.category
+                    _noteColor.value = it.color
+                    _isPinned.value = it.isPinned
+                    _reminderTime.value = it.reminderTime
+                    _hasAudio.value = it.hasAudio
+                    _audioPath.value = it.audioPath
+                    _tags.value = it.tags
+                    _isTemporary.value = it.isTemporary
+                    _deleteAfter.value = it.deleteAfter
+                    _lastEdited.value = com.flownote.util.DateUtils.formatDate(it.updatedAt)
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to load note. Please try again."
+            } finally {
+                _isLoading.value = false
             }
-            _isLoading.value = false
         }
     }
     
     fun onTitleChange(newTitle: String) {
-        _title.value = newTitle
+        // Limit title to 200 characters
+        val validatedTitle = if (newTitle.length > 200) {
+            _error.value = "Title cannot exceed 200 characters"
+            newTitle.take(200)
+        } else {
+            newTitle
+        }
+        _title.value = validatedTitle
         triggerAutoSave() // Auto-save after title change
     }
     
@@ -203,22 +218,27 @@ class NoteEditorViewModel @Inject constructor(
             isDeleted = true // Mark as deleted to prevent resurrection
             
             viewModelScope.launch {
-                noteRepository.deleteNote(it)
-                _isNoteSaved.value = true // Trigger navigation back
+                try {
+                    noteRepository.deleteNote(it)
+                    _isNoteSaved.value = true // Trigger navigation back
+                } catch (e: Exception) {
+                    _error.value = "Failed to delete note. Please try again."
+                    isDeleted = false // Reset on error
+                }
             }
         }
     }
     
     /**
-     * Trigger auto-save with 1-second debounce
+     * Trigger auto-save with 500ms debounce
      */
     private fun triggerAutoSave() {
         // Cancel any pending auto-save
         autoSaveJob?.cancel()
         
-        // Schedule new auto-save with 1-second debounce
+        // Schedule new auto-save with 500ms debounce
         autoSaveJob = viewModelScope.launch {
-            delay(1000L) // 1 second debounce
+            delay(500L) // 500ms debounce (reduced from 1000ms)
             saveNote(navigateBack = false) // Silent save, no navigation
         }
     }
@@ -264,74 +284,102 @@ class NoteEditorViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
-            val note = currentNote?.copy(
-                title = _title.value,
-                content = _content.value,
-                category = _category.value,
-                tags = _tags.value, // FIX: Add tags to update
-                color = _noteColor.value,
-                isPinned = _isPinned.value,
-                reminderTime = _reminderTime.value,
-                hasAudio = _hasAudio.value,
-                audioPath = _audioPath.value,
-                isTemporary = _isTemporary.value,
-                deleteAfter = _deleteAfter.value,
-                updatedAt = java.util.Date()
-            ) ?: Note(
-                id = UUID.randomUUID().toString(),
-                title = _title.value,
-                content = _content.value,
-                category = _category.value,
-                tags = _tags.value,
-                isTemporary = _isTemporary.value,
-                deleteAfter = _deleteAfter.value,
-                hasAudio = _hasAudio.value,
-                audioPath = _audioPath.value,
-                createdAt = java.util.Date(),
-                updatedAt = java.util.Date(),
-                isSynced = false,
-                isPinned = _isPinned.value,
-                color = _noteColor.value,
-                reminderTime = _reminderTime.value,
-                isChecklist = false
-            )
-            
-            // Schedule or Cancel Reminder
-            if (_reminderTime.value != null && _reminderTime.value!!.after(Date())) {
-                notificationScheduler.scheduleReminder(
-                    context, 
-                    note.id, 
-                    note.title.ifBlank { "Untitled Note" },
-                    _reminderTime.value!!
+            try {
+                val note = currentNote?.copy(
+                    title = _title.value,
+                    content = _content.value,
+                    category = _category.value,
+                    tags = _tags.value,
+                    color = _noteColor.value,
+                    isPinned = _isPinned.value,
+                    reminderTime = _reminderTime.value,
+                    hasAudio = _hasAudio.value,
+                    audioPath = _audioPath.value,
+                    isTemporary = _isTemporary.value,
+                    deleteAfter = _deleteAfter.value,
+                    updatedAt = java.util.Date()
+                ) ?: Note(
+                    id = UUID.randomUUID().toString(),
+                    title = _title.value,
+                    content = _content.value,
+                    category = _category.value,
+                    tags = _tags.value,
+                    isTemporary = _isTemporary.value,
+                    deleteAfter = _deleteAfter.value,
+                    hasAudio = _hasAudio.value,
+                    audioPath = _audioPath.value,
+                    createdAt = java.util.Date(),
+                    updatedAt = java.util.Date(),
+                    isSynced = false,
+                    isPinned = _isPinned.value,
+                    color = _noteColor.value,
+                    reminderTime = _reminderTime.value,
+                    isChecklist = false
                 )
-            } else {
-                notificationScheduler.cancelReminder(context, note.id)
-            }
-            
-            
-            noteRepository.saveNote(note)
-            
-            // CRITICAL FIX: Update currentNote after first save
-            // This prevents duplicate notes on subsequent auto-saves
-            if (currentNote == null) {
-                currentNote = note
-            }
-            
-            // Only trigger navigation if requested
-            if (navigateBack) {
-                _isNoteSaved.value = true
+                
+                // Schedule or Cancel Reminder
+                if (_reminderTime.value != null && _reminderTime.value!!.after(Date())) {
+                    notificationScheduler.scheduleReminder(
+                        context, 
+                        note.id, 
+                        note.title.ifBlank { "Untitled Note" },
+                        _reminderTime.value!!
+                    )
+                } else {
+                    notificationScheduler.cancelReminder(context, note.id)
+                }
+                
+                noteRepository.saveNote(note)
+                
+                // CRITICAL FIX: Update currentNote after first save
+                // This prevents duplicate notes on subsequent auto-saves
+                if (currentNote == null) {
+                    currentNote = note
+                }
+                
+                // Only trigger navigation if requested
+                if (navigateBack) {
+                    _isNoteSaved.value = true
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to save note. Please try again."
             }
         }
     }
     
+    /**
+     * Clear error message
+     */
+    fun clearError() {
+        _error.value = null
+    }
+    
     fun addTag(tag: String) {
-        if (!_tags.value.contains(tag)) {
-            _tags.value = _tags.value + tag
+        // Trim whitespace and validate
+        val trimmedTag = tag.trim()
+        
+        // Validate tag
+        if (trimmedTag.isEmpty()) {
+            _error.value = "Tag cannot be empty"
+            return
         }
+        
+        if (trimmedTag.length > 50) {
+            _error.value = "Tag cannot exceed 50 characters"
+            return
+        }
+        
+        // Check for duplicates (case-insensitive)
+        if (_tags.value.any { it.equals(trimmedTag, ignoreCase = true) }) {
+            _error.value = "Tag already exists"
+            return
+        }
+        
+        _tags.value = _tags.value + trimmedTag
     }
 
     fun removeTag(tag: String) {
-        _tags.value = _tags.value - tag
+        _tags.value = _tags.value.filter { it != tag }
     }
 
     fun toggleAudioRecording() {
